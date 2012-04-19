@@ -1,0 +1,7 @@
+# Ignore debug-generated images
+*-weights.png
+*-scores.png
+*-dscores.png
+
+# Ignore Qt generated files
+moc_*.cpp
