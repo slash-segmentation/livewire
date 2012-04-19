@@ -19,7 +19,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 **/
 
-#include "WeightCalculator.h"
+#include "Weights.h"
 
 #include "Colors.h"
 
@@ -68,8 +68,6 @@ static void WindowFilter(const uint w, const uint h, const byte *in, byte *out, 
 	const byte *window[windowSize];
 
 	uint X, Y, Yw, I;
-
-	// TODO: Optimize more?
 
 #define ADVANCE_X(N) for (uint y = 0; y < N; ++y) ++window[y];
 	if (cb)
@@ -128,7 +126,7 @@ static void WindowFilter(const uint w, const uint h, const byte *in, byte *out, 
 }
 
 template <>
-static void WindowFilter<3>(const uint w, const uint h, const byte *in, byte *out, WindowFilterCBFull *cb_full, WindowFilterCB *cb, void *param)
+/*static*/ void WindowFilter<3>(const uint w, const uint h, const byte *in, byte *out, WindowFilterCBFull *cb_full, WindowFilterCB *cb, void *param)
 {
 	// Specialize the most common and smallest window filter
 
@@ -494,7 +492,7 @@ inline static void RunGaussianBinning(const uint W, const uint H, const byte *in
 	WindowBinning<windowSize>(W, H, in, out, &GaussianFilterCBFull<windowSize>, &GaussianFilterCB<windowSize>, NULL);
 }
 template<>
-inline static void RunGaussianBinning<2>(const uint W, const uint H, const byte *in, byte *out)
+inline /*static*/ void RunGaussianBinning<2>(const uint W, const uint H, const byte *in, byte *out)
 {
 	RunMeanBinning<2>(W, H, in, out);
 }
@@ -584,109 +582,79 @@ inline static void Swap(byte *&a, byte *&b) { byte *x = a; a = b; b = x; }
 #define BLOCK_SIZE_	LOG2(BLOCK_SIZE)
 CASSERT(IS_POWER_OF_TWO(BLOCK_SIZE)); // must be a power of 2, there are numerous mathematical shortcuts taken with this assumption in mind
 
-WeightCalculator::Settings::Settings(CoalescingMethod Method, PixelReductionMethod PixelReduction, NoiseReductionMethod NoiseReduction, EdgeDetectionMethod EdgeDetection, AccentuationMethod Accentuation, bool Invert) :
+Weights::Settings::Settings(CoalescingMethod Method, PixelReductionMethod PixelReduction, NoiseReductionMethod NoiseReduction, EdgeDetectionMethod EdgeDetection, AccentuationMethod Accentuation, bool Invert) :
 	Method(Method), PixelReduction(PixelReduction), NoiseReduction(NoiseReduction), EdgeDetection(EdgeDetection), Accentuation(Accentuation), Invert(Invert) {}
-
-const WeightCalculator::Settings WeightCalculator::GrayScaleSettings;
-
-//const WeightCalculator::Settings WeightCalculator::GrayScaleSettings(WeightCalculator::BlueChannel,
-//	WeightCalculator::Mean2pxWindow, WeightCalculator::NoNoiseReduction, WeightCalculator::NoEdgeDetection, WeightCalculator::Sigmoid, false);
-
-//const WeightCalculator::Settings WeightCalculator::GrayScaleSettings(WeightCalculator::BlueChannel,
-//	WeightCalculator::NoPixelReduction, WeightCalculator::NoNoiseReduction, WeightCalculator::NoEdgeDetection, WeightCalculator::NoAccentuation, false);
-
-const WeightCalculator::Settings WeightCalculator::ColorSettings(WeightCalculator::WeightedHSV, WeightCalculator::Mean3pxWindow, WeightCalculator::NoNoiseReduction, WeightCalculator::Sobel, WeightCalculator::NoAccentuation, false);
-
-WeightCalculator::WeightCalculator(uint w, uint h, const Settings& settings) : Threaded("Weight Calculator"),
-	_data_raw(NULL), _stride(0), _format(GrayscaleByte),
-	_settings(settings), _scale(WINDOW_SIZE(settings.PixelReduction)),
-	_width_raw(w), _height_raw(h),
-	_width(ScaleBack(w, WINDOW_SIZE(settings.PixelReduction))), _height(ScaleBack(h, WINDOW_SIZE(settings.PixelReduction))),
-	_width_status(ScaleBack<BLOCK_SIZE>(_width)), _height_status(ScaleBack<BLOCK_SIZE>(_height)), _last_col_width(this->_width - ((this->_width_status-1) << BLOCK_SIZE_)),
-	_filter_overflow(MAX(WINDOW_SIZE(settings.NoiseReduction), WINDOW_SIZE(settings.EdgeDetection)) / 2),
-	_block_queue(_width_status, _height_status)
+bool Weights::Settings::operator ==(const Weights::Settings& r) const
 {
-	const uint wh_s = this->_width_status*this->_height_status;
-
-	this->SetTotalProgress(wh_s);
-	this->_data   = (byte**)memset(malloc(wh_s*sizeof(byte*)), NULL, wh_s*sizeof(byte*));
-	this->_status = (byte*)memset(malloc(wh_s), STATUS_NOT_DONE, wh_s);
-}
-WeightCalculator::~WeightCalculator()
-{
-	this->Stop();
-	free(this->_data);
-	free(this->_status);
+	return this->Method == r.Method && this->PixelReduction == r.PixelReduction && this->NoiseReduction == r.NoiseReduction && this->EdgeDetection == r.EdgeDetection && this->Accentuation == r.Accentuation && this->Invert == r.Invert;
 }
 
-uint WeightCalculator::GetBlocksCalculated(QVector<QPoint>& done, QVector<QPoint>& doing, QVector<QPoint>& not_done) const
-{
-	const uint BS = this->_scale << BLOCK_SIZE_;
-	const uint w = this->_width_status * BS, h = this->_height_status * BS;
-	for (uint y = 0, I = 0; y < h; y += BS)
-		for (uint x = 0; x < w; x += BS, ++I)
-		{
-			if (this->_status[I] == STATUS_DONE)												done.push_back(QPoint(x, y));
-			else if (this->_status[I] == STATUS_DOING || this->_status[I] == STATUS_WILL_DO)	doing.push_back(QPoint(x, y));
-			else if (this->_status[I] == STATUS_NOT_DONE)										not_done.push_back(QPoint(x, y));
-		}
-	return BS;
-}
+const Weights::Settings Weights::GrayscaleSettings;
 
-bool WeightCalculator::Get(uint X, uint Y, byte* w) /*const*/
+//const Weights::Settings Weights::GrayScaleSettings(Weights::BlueChannel,
+//	Weights::Mean2pxWindow, Weights::NoNoiseReduction, Weights::NoEdgeDetection, Weights::Sigmoid, false);
+
+//const Weights::Settings Weights::GrayScaleSettings(Weights::BlueChannel,
+//	Weights::NoPixelReduction, Weights::NoNoiseReduction, Weights::NoEdgeDetection, Weights::NoAccentuation, false);
+
+const Weights::Settings Weights::ColorSettings(Weights::WeightedHSV, Weights::Mean3pxWindow, Weights::NoNoiseReduction, Weights::Sobel, Weights::NoAccentuation, false);
+
+Weights::Weights() : Threaded("Weights"),
+	_data_raw(NULL), _data(NULL), _status(NULL),
+	_scale(WINDOW_SIZE(this->_settings.PixelReduction)), _filter_overflow(MAX(WINDOW_SIZE(this->_settings.NoiseReduction), WINDOW_SIZE(this->_settings.EdgeDetection)) / 2) { }
+Weights::~Weights() { this->Stop(); free(this->_data); free(this->_status); }
+
+inline void Weights::UpdatedScaleOrSize()
 {
-	const uint x = X >> BLOCK_SIZE_, i = (Y >> BLOCK_SIZE_) * this->_width_status + x;
-	if (this->_status[i] == STATUS_WILL_DO || this->_status[i] == STATUS_DOING)
+	if (this->_width_raw || this->_height_raw)
 	{
-		this->_status_lock.lock();
-		while (this->_status[i] == STATUS_WILL_DO || this->_status[i] == STATUS_DOING)
-			this->_block_finished.wait(&this->_status_lock);
-		this->_status_lock.unlock();
+		this->_width = ScaleBack(this->_width_raw, WINDOW_SIZE(this->_scale));
+		this->_height = ScaleBack(this->_height_raw, WINDOW_SIZE(this->_scale));
+		this->_width_status = ScaleBack<BLOCK_SIZE>(this->_width);
+		this->_height_status = ScaleBack<BLOCK_SIZE>(this->_height);
+		this->_last_col_width = this->_width - ((this->_width_status-1) << BLOCK_SIZE_);
+
+		this->_block_queue.SetSize(this->_width_status, this->_height_status);
+
+		const uint wh_s = this->_width_status*this->_height_status;
+		this->_data   = (byte**)memset(realloc(this->_data, wh_s*sizeof(byte*)), NULL, wh_s*sizeof(byte*));
+		this->_status = (byte*)memset(realloc(this->_status, wh_s), STATUS_NOT_DONE, wh_s);
+		this->SetTotalProgress(wh_s);
 	}
-	if (this->_status[i] == STATUS_NOT_DONE)
-		return false;
-	const uint x_ = X & (BLOCK_SIZE - 1), y_ = Y & (BLOCK_SIZE - 1); // X % d (where d is a power of 2) = X & (d - 1)
-	*w = this->_data[i][((x == this->_width_status-1) ? (y_ * this->_last_col_width) : (y_ << BLOCK_SIZE_)) + x_];
-	return true;
 }
 
-uint WeightCalculator::GetScale()          const { return this->_scale;      }
-uint WeightCalculator::GetOriginalWidth()  const { return this->_width_raw;  }
-uint WeightCalculator::GetOriginalHeight() const { return this->_height_raw; }
-uint WeightCalculator::GetReducedWidth()   const { return this->_width;      }
-uint WeightCalculator::GetReducedHeight()  const { return this->_height;     }
-
-void WeightCalculator::Stop()
+void Weights::SetSettings(const Settings& settings)
 {
-	if (this->IsExecuting())
+	const byte *data_raw = this->_data_raw;
+
+	this->Stop();
+
+	this->_settings = settings;
+	this->_filter_overflow = MAX(WINDOW_SIZE(settings.NoiseReduction), WINDOW_SIZE(settings.EdgeDetection)) / 2;
+	if (this->_scale != (uint)WINDOW_SIZE(settings.PixelReduction))
 	{
-		this->_queue_lock.lock();
-		this->_block_queue.Clear();
-		Threaded::Stop(false);
-		this->_blocks_queued.wakeAll();
-		this->_queue_lock.unlock();
+		this->_scale = WINDOW_SIZE(settings.PixelReduction);
+		this->UpdatedScaleOrSize();
 	}
 
-	const uint wh = this->_width_status*this->_height_status;
-
-	this->wait();
-
-	this->_data_raw = NULL;
-	for (uint I = 0; I < wh; ++I)
-		if (this->_data[I])
-		{
-			BlockPool::Return(this->_data[I]);
-			this->_data[I] = NULL;
-		}
-
-	this->_status_lock.lock();
-	memset(this->_status, STATUS_NOT_DONE, wh);
-	this->_status_lock.unlock();
+	if (data_raw)
+	{
+		this->_data_raw = data_raw;
+		this->Start();
+	}
 }
+const Weights::Settings& Weights::GetSettings() const { return this->_settings; }
 
-void WeightCalculator::SetImage(const byte* imageData, DataFormat format, uint stride)
+void Weights::SetImage(const byte* imageData, uint W, uint H, DataFormat format, uint stride)
 {
 	this->Stop();
+
+	if (this->_width_raw != W || this->_height_raw != H)
+	{
+		this->_width_raw = W;
+		this->_height_raw = H;
+		this->UpdatedScaleOrSize();
+	}
 
 	//assert(format != GrayscaleUShort || stride % sizeof(unsigned short) == 0);
 	//assert(format != RGB             || stride % sizeof(QRgb) == 0);
@@ -698,20 +666,53 @@ void WeightCalculator::SetImage(const byte* imageData, DataFormat format, uint s
 	this->Start();
 }
 
-void WeightCalculator::ChangeSettings(const Settings& settings)
+bool Weights::Get(uint X, uint Y, byte* w) /*const*/
 {
-	const byte *data_raw = this->_data_raw;
-
-	this->Stop();
-
-	this->_settings = settings;
-	this->_filter_overflow = MAX(WINDOW_SIZE(settings.NoiseReduction), WINDOW_SIZE(settings.EdgeDetection)) / 2;
-
-	if (data_raw)
+	const uint x = X >> BLOCK_SIZE_, i = (Y >> BLOCK_SIZE_) * this->_width_status + x;
+	if (this->_status[i] == STATUS_WILL_DO || this->_status[i] == STATUS_DOING)
 	{
-		this->_data_raw = data_raw;
-		this->Start();
+		this->_status_lock.lock();
+		while (this->_status[i] == STATUS_WILL_DO || this->_status[i] == STATUS_DOING)
+			this->_block_finished.wait(&this->_status_lock); // TODO: this can cause some slowdowns if, while waiting, the livewire wants to stop
+		this->_status_lock.unlock();
 	}
+	if (this->_status[i] == STATUS_NOT_DONE)
+		return false;
+	const uint x_ = X & (BLOCK_SIZE - 1), y_ = Y & (BLOCK_SIZE - 1); // X % d (where d is a power of 2) = X & (d - 1)
+	*w = this->_data[i][((x == this->_width_status-1) ? (y_ * this->_last_col_width) : (y_ << BLOCK_SIZE_)) + x_];
+	return true;
+}
+
+void Weights::Stop()
+{
+	// TODO: stop all livewires using this weight calculator
+
+	const uint wh = this->_width_status*this->_height_status;
+	
+	if (this->IsExecuting())
+	{
+		QMutexLocker(&this->_status_lock);
+		QMutexLocker(&this->_queue_lock);
+
+		Threaded::Stop(false);
+
+		this->_block_queue.Clear();
+		this->_blocks_queued.wakeAll();
+
+		memset(this->_status, STATUS_NOT_DONE, wh);
+		this->_block_finished.wakeAll();
+	}
+
+	this->_data_raw = NULL;
+	for (uint I = 0; I < wh; ++I)
+		if (this->_data[I])
+		{
+			BlockPool::Return(this->_data[I]);
+			this->_data[I] = NULL;
+		}
+
+	// TODO: Wait for the livewires using this weight calculator
+	this->wait();
 }
 
 inline static uint CalcScore(uint x, uint y, double X, double Y)
@@ -727,7 +728,7 @@ inline static uint CalcScore(uint x, uint y, double X, double Y)
 typedef struct _dblpoint { double x, y; } dblpoint;
 static uint CalcScoreCB(uint x, uint y, uint I, dblpoint *pt) { (I); /* unreferenced parameter */ return CalcScore(x, y, pt->x, pt->y); }
 
-void WeightCalculator::CalculateRegion(uint x, uint y, uint min_room)
+void Weights::CalculateRegion(uint x, uint y, uint min_room)
 {
 	//assert(this->_data_raw != NULL);
 
@@ -765,7 +766,7 @@ void WeightCalculator::CalculateRegion(uint x, uint y, uint min_room)
 		this->_blocks_queued.wakeAll();
 }
 
-void WeightCalculator::Run()
+void Weights::Run()
 {
 	// TODO: make multi-threaded
 	// int threadCount = QThread::idealThreadCount(); // equals the number of processor cores
@@ -796,7 +797,7 @@ void WeightCalculator::Run()
 	while (this->IsExecuting());
 }
 
-void WeightCalculator::CalcBlock(uint x_s, uint y_s, uint I)
+void Weights::CalcBlock(uint x_s, uint y_s, uint I)
 {
 	this->_status_lock.lock();
 	this->_status[I] = STATUS_DOING;
@@ -913,8 +914,22 @@ void WeightCalculator::CalcBlock(uint x_s, uint y_s, uint I)
 
 #ifdef SAVE_WEIGHT_IMAGE
 	this->Checkpoint("saving weights image");
-	WriteBitmap(this->_data, w, h, "weights");
+	WriteBitmap(this->_data, w, h, BLOCK_SIZE, "weights");
 #endif
 
 	BlockPool::Return(temp);
+}
+
+uint Weights::GetBlocksCalculated(QVector<QPoint>& done, QVector<QPoint>& doing, QVector<QPoint>& not_done) const
+{
+	const uint BS = this->_scale << BLOCK_SIZE_;
+	const uint w = this->_width_status * BS, h = this->_height_status * BS;
+	for (uint y = 0, I = 0; y < h; y += BS)
+		for (uint x = 0; x < w; x += BS, ++I)
+		{
+			if (this->_status[I] == STATUS_DONE)												done.push_back(QPoint(x, y));
+			else if (this->_status[I] == STATUS_DOING || this->_status[I] == STATUS_WILL_DO)	doing.push_back(QPoint(x, y));
+			else if (this->_status[I] == STATUS_NOT_DONE)										not_done.push_back(QPoint(x, y));
+		}
+	return BS;
 }

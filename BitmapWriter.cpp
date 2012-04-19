@@ -42,28 +42,44 @@ static const QVector<QRgb> *GetGrayscaleColorTable()
 	return grayscale_color_table;
 }
 
-void Livewire::WriteBitmap(const uint *data, uint w, uint h, const char *name)
+void Livewire::WriteBitmap(const SparseMatrix<uint> &data, uint w, uint h, const char *name)
 {
 	QImage b(w, h, QImage::Format_Indexed8);
 	b.setColorTable(*GetGrayscaleColorTable());
-	uint max = 0, wh = w*h;
-	for (uint i = 0; i < wh; ++i)
-		if (data[i] > max)
-			max = data[i];
-	for (uint y = 0, off = 0; y < h; ++y, off += w)
+	uint max = 0;
+	for (uint y = 0; y < h; ++y)
+	{
+		for (uint x = 0; x < w; ++x)
+		{
+			uint val = data.Get(x, y);
+			if (val > max)
+				max = val;
+		}
+	}
+	for (uint y = 0; y < h; ++y)
 	{
 		byte *line = b.scanLine(y);
-		for (uint x = off, X = 0; X < w; ++x, ++X)
-			line[X] = (byte)(data[x] * 255 / max);
+		for (uint x = 0; x < w; ++x)
+			line[x] = (byte)(data.Get(x, y) * 255 / max);
 	}
 	b.save(QString::number(QDateTime::currentMSecsSinceEpoch()) + "-" + QString(name) + ".png");
 }
 
-void Livewire::WriteBitmap(const byte *data, uint w, uint h, const char *name)
+void Livewire::WriteBitmap(const RawSparseMatrix data, uint w, uint h, uint bs, const char *name)
 {
 	QImage b(w, h, QImage::Format_Indexed8);
 	b.setColorTable(*GetGrayscaleColorTable());
-	for (uint y = 0, off = 0; y < h; ++y, off += w)
-		memcpy(b.scanLine(y), data+off, w);
+	const uint W = ScaleBack(w, bs), H = ScaleBack(h, bs), W1 = W - 1, H1 = H - 1, bw_ = w % bs, bh_ = h % bs;
+
+	for (uint Y = 0, y = 0, I = 0; Y < H; ++Y, y += bs)
+	{
+		const uint bh = (Y == H1) ? bh_ : bs;
+		for (uint X = 0, x = 0; X < W; ++X, x += bs, ++I)
+		{
+			const uint bw = (X == W1) ? bw_ : bs;
+			if (data[I])	for (uint y_ = 0; y_ < bh; ++y_) { memcpy(b.scanLine(y_ + y) + x, data[I]+y_*bw, bw); }
+			else			for (uint y_ = 0; y_ < bh; ++y_) { memset(b.scanLine(y_ + y) + x, 0,             bw); }
+		}
+	}
 	b.save(QString::number(QDateTime::currentMSecsSinceEpoch()) + "-" + QString(name) + ".png");
 }

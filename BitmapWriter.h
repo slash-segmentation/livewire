@@ -28,19 +28,22 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 namespace Livewire
 {
-	/// <summary>Debug utility to save a matrix as a grayscale image</summary>
+	/// <summary>Debug utility to save a sparse matrix as a grayscale image</summary>
 	/// <param name="data">The data to save</param>
 	/// <param name="w">The width of the data</param>
 	/// <param name="h">The height of the data</param>
 	/// <param name="name">The name of the data</param>
-	void WriteBitmap(const uint *data, uint w, uint h, const char *name);
+	void WriteBitmap(const SparseMatrix<uint> &data, uint w, uint h, const char *name);
 
-	/// <summary>Debug utility to save a matrix as a grayscale image</summary>
+	typedef byte ** RawSparseMatrix;
+
+	/// <summary>Debug utility to save a raw sparse matrix as a grayscale image</summary>
 	/// <param name="data">The data to save</param>
 	/// <param name="w">The width of the data</param>
 	/// <param name="h">The height of the data</param>
+	/// <param name="bs">The block-size of the data</param>
 	/// <param name="name">The name of the data</param>
-	void WriteBitmap(const byte *data, uint w, uint h, const char *name);
+	void WriteBitmap(const RawSparseMatrix data, uint w, uint h, uint bs, const char *name);
 }
 
 #endif

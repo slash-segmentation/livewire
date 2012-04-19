@@ -26,7 +26,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include "PointPriorityQueue.h"
 #include "Threaded.h"
-#include "WeightCalculator.h"
+#include "Weights.h"
 
 #include <QPoint>
 #include <QVector>
@@ -40,22 +40,13 @@ namespace Livewire
 	class LivewireCalculator : public Threaded
 	{
 	private:
-		/// <summary>The width of the data</summary>
-		const uint _w;
+		/// <summary>The weights backing this livewire calculator</summary>
+		Weights *_weights;
 
-		/// <summary>The height of the data</summary>
-		const uint _h;
-
-		/// <summary>The scale of the data (amount of binning)</summary>
-		const uint _scale;
-		
-		/// <summary>The weight calculator backing this livewire calculator</summary>
-		WeightCalculator *_weights;
-
-		/// <summary>The X coordinate of the point at which the livewire data is calculated for</summary>
+		/// <summary>The X coordinate of the point at which the livewire starts</summary>
 		uint _x;
 		
-		/// <summary>The Y coordinate of the point at which the livewire data is calculated for</summary>
+		/// <summary>The Y coordinate of the point at which the livewire starts</summary>
 		uint _y;
 
 		/// <summary>The minimum amount of room to have weights calculated for</summary>
@@ -71,25 +62,14 @@ namespace Livewire
 		SparseMatrix<uint> _trace;
 
 	public:
-		/// <summary>Create a livewire calculator object from the given weights.</summary>
-		/// <param name="weights">The weights object, which includes the width and height of the output data.</param>
-		/// <remarks>The weight matrix doesn't have to be done calculating when given to the livewire calculator.</remarks>
-		LivewireCalculator(WeightCalculator *weights);
+		LivewireCalculator();
 		~LivewireCalculator();
 
-#ifndef IMOD_PLUGIN
-		/// <summary>
-		/// Draws the livewire trace using all of the precomputed data.
-		/// If the livewire data is not completely computed yet the available livewire data is used if the end point is computed.
-		/// This takes only a few milliseconds (&lt;10ms) for almost any image or path size.
-		/// </summary>
-		/// <param name="x">The X coordinate of the end of the trace</param>
-		/// <param name="y">The Y coordinate of the end of the trace</param>
-		/// <param name="painter">The painter to use</param>
-		void DrawTrace(uint x, uint y, QPainter &painter);
-#endif
+		LivewireCalculator *Copy();
 
-		QVector<QPoint> GetTrace(uint x, uint y);
+		void SetImage(const byte* image, uint w, uint h, Weights::DataFormat format, uint stride);
+		void SetSettings(const Weights::Settings& settings);
+		const Weights::Settings& GetSettings() const;
 
 		/// <summary>Starts the livewire-calculating thread for the given point, see prepareLivewire for the function that actually does the work</summary>
 		/// <param name="x">The X coordinate at which to calculate the livewire data for, it is given a score of 0</param>
@@ -103,6 +83,26 @@ namespace Livewire
 
 	private:
 		inline void CalcPoint(const uint x, const uint y, const uint i, const bool diagonal, const uint I, const uint S);
+
+	public:
+		/// <summary>
+		/// Gets the livewire trace using all of the precomputed data.
+		/// If the livewire data is not completely computed yet the available livewire data is used if the end point is computed.
+		/// </summary>
+		/// <param name="x">The X coordinate of the end of the trace</param>
+		/// <param name="y">The Y coordinate of the end of the trace</param>
+		QVector<QPoint> GetTrace(uint x, uint y) const;
+
+#ifndef IMOD_PLUGIN
+		/// <summary>
+		/// Draws the livewire trace using all of the precomputed data.
+		/// If the livewire data is not completely computed yet the available livewire data is used if the end point is computed.
+		/// </summary>
+		/// <param name="x">The X coordinate of the end of the trace</param>
+		/// <param name="y">The Y coordinate of the end of the trace</param>
+		/// <param name="painter">The painter to use</param>
+		void DrawTrace(uint x, uint y, QPainter &painter) const;
+#endif
 	};
 }
 

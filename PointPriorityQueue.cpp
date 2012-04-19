@@ -55,7 +55,7 @@ public:
 	}
 	inline static void Return(Entry *e) { avail.push_back(e); }
 	//inline void Return() { Return(this); }
-	inline static void Clear() // TODO: call this function somewhere
+	inline static void Clear()
 	{
 		for (size_t i = 0; i < blocks.size(); ++i)
 			free(blocks[i]);
@@ -65,6 +65,7 @@ public:
 };
 vector<PointPriorityQueue::Entry*> PointPriorityQueue::Entry::avail;
 vector<void*> PointPriorityQueue::Entry::blocks;
+void PointPriorityQueue::EntryClear() { Entry::Clear(); }
 
 #ifdef ENABLE_CHECKING
 #ifdef _MSC_VER
@@ -88,22 +89,34 @@ static void Check(const bool cHO, const vector<PointPriorityQueue::Entry*>& heap
 		assert(e->I == IW(e->x, e->y, w));
 		assert(&e->index == map.Get(e->x, e->y));
 	}
-	/*const size_t wh = w * h;
-	for (uint I = 0; I < wh; ++I)
+	for (uint y = 0; y < h; ++y)
 	{
-		// TODO: update for new map format
-		const size_t *index = map[I];
-		size_t i;
-		assert(index == NULL || ((i = *index) < heap.size() && heap[i]->I == I));
-	}*/
+		for (uint x = 0; x < w; ++x)
+		{
+			const size_t *index = map.Get(x, y);
+			size_t i;
+			assert(index == NULL || ((i = *index) < heap.size() && heap[i]->I == (x + y * w)));
+		}
+	}
 }
 #else
 #define ASSERT(B)	
 #define CHECK(O)	
 #endif
 
-PointPriorityQueue::PointPriorityQueue(uint w, uint h) : _width(w), _height(h), _heap(), _map(w, h) { const uint perim = w+w+h+h; this->_heap.reserve(perim > 0x4000 ? 0x4000 : perim); }
+PointPriorityQueue::PointPriorityQueue() : _w(0), _h(0) { }
+PointPriorityQueue::PointPriorityQueue(uint w, uint h) : _w(w), _h(h), _map(w, h) { const uint perim = w+w+h+h; this->_heap.reserve(perim > 0x4000 ? 0x4000 : perim); }
 PointPriorityQueue::~PointPriorityQueue() { this->Clear(); }
+void PointPriorityQueue::SetSize(uint w, uint h)
+{
+	this->Clear();
+	if (this->_w != w || this->_h != h)
+	{
+		const uint perim = w+w+h+h;
+		this->_heap.reserve(perim > 0x4000 ? 0x4000 : perim);
+		this->_map.SetSize(this->_w = w, this->_h = h);
+	}
+}
 
 #pragma region Priority queue operations
 

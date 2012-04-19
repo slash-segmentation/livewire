@@ -141,6 +141,7 @@ namespace Livewire
 	};
 
 	// A sparse matrix which only uses memory for blocks around non-zero values
+	// Note: This does not store the actual width and height of the data but width and height scaled back by the block size.
 	template <typename T, uint block_size = 256> class SparseMatrix
 	{
 	private:
@@ -150,30 +151,47 @@ namespace Livewire
 		struct Block { T *data; uint zeroes; }; // if data == NULL then all values in the block are 0 (even if zeroes != block_size_2)
 
 		Block *_x;
-		const uint _w, _h, _wh; // scaled by sz
-	public:
-		inline SparseMatrix(uint w, uint h) : _w(ScaleBack<block_size>(w)), _h(ScaleBack<block_size>(h)), _wh(_h*_w)
+		uint _w, _h; // scaled by sz
+
+		inline void ReturnAll()
 		{
-			const uint bytes = this->_wh * sizeof(Block);
-			this->_x = (Block*)memset(malloc(bytes), 0, bytes);
-		}
-		inline ~SparseMatrix()
-		{
-			const uint wh = this->_wh;
+			const uint wh = this->_w * this->_h;
 			for (size_t i = 0; i < wh; ++i)
 				if (this->_x[i].data)
 					BlockPool::Return(this->_x[i].data);
-			free(this->_x);
+		}
+
+	public:
+		inline SparseMatrix() : _w(0), _h(0) { this->_x = NULL; }
+		inline SparseMatrix(uint w, uint h) : _w(ScaleBack<block_size>(w)), _h(ScaleBack<block_size>(h))
+		{
+			const uint bytes = this->_w * this->_h * sizeof(Block);
+			this->_x = (Block*)memset(malloc(bytes), 0, bytes);
+		}
+		inline ~SparseMatrix() { this->ReturnAll(); free(this->_x); }
+		inline void Clear()    { this->ReturnAll(); memset(this->_x, 0, this->_w * this->_h * sizeof(Block)); }
+		inline void Reset()    { this->ReturnAll(); free(this->_x); this->_x = NULL; this->_w = 0; this->_h = 0; }
+		inline void SetSize(uint w, uint h) // basically deconstructor followed by constructor
+		{
+			this->ReturnAll();
+			const uint bytes = (w = ScaleBack<block_size>(w)) * (h = ScaleBack<block_size>(h)) * sizeof(Block);
+			if (this->_w != w || this->_h != h)
+			{
+				this->_w = w; this->_h = h;
+				this->_x = (Block*)realloc(this->_x, bytes);
+			}
+			memset(this->_x, 0, bytes);
 		}
 		inline T Get(const uint X, const uint Y) const
 		{
+			//assert(this->_x);
 			const Block *b = this->_x + (Y >> block_size_)*this->_w + (X >> block_size_);
 			return b->data ? b->data[((Y & (block_size-1)) << block_size_) + (X & (block_size-1))] : 0;
 		}
 		void Set(const uint X, const uint Y, const T& val)
 		{
+			//assert(this->_x);
 			Block *b = this->_x + (Y >> block_size_)*this->_w + (X >> block_size_);
-
 			if (b->data)
 			{
 				T *d = b->data + (((Y & (block_size-1)) << block_size_) + (X & (block_size-1)));
@@ -201,14 +219,6 @@ namespace Livewire
 				b->data = (T*)BlockPool::Get(block_mem_size, 0);
 				b->data[((Y & (block_size-1)) << block_size_) + (X & (block_size-1))] = val;
 			}
-		}
-		inline void Clear()
-		{
-			const uint wh = this->_wh;
-			for (size_t i = 0; i < wh; ++i)
-				if (this->_x[i].data)
-					BlockPool::Return(this->_x[i].data);
-			memset(this->_x, 0, wh*sizeof(Block));
 		}
 	};
 	// TODO: make a specialized bool version (blocks would be 1/8 the size, allow for blocks of solid 1 or solid 0, and take a little longer to access...)

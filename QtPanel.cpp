@@ -32,12 +32,17 @@ const QPen QtPanel::WrapwirePen(QColor(255, 128, 128), 1.5f);
 const QBrush QtPanel::MouseBrush(Qt::red);
 const QBrush QtPanel::PointBrush(Qt::yellow);
 
+const QBrush QtPanel::NotCalculatedBrush(QColor(0xFF, 0, 0, 0x30));
+const QBrush QtPanel::CalculatingBrush(QColor(0xFF, 0xFF, 0, 0x30));
+
 QtPanel::QtPanel(QWidget *parent) : QWidget(parent),
-	weights(NULL), livewire(NULL), wrapwire(NULL), w(0), h(0)
+	livewire(NULL), wrapwire(NULL), w(0), h(0), showCalculationBlocks(false), availSize(1024)
 {
 	this->setMouseTracking(true);
 	this->setWindowTitle("Livewire Demo");
 	this->resize(200, 150);
+	this->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(this, SIGNAL(customContextMenuRequested(const QPoint&)), this, SLOT(ShowContextMenu(const QPoint&)));
 }
 QtPanel::~QtPanel() { this->Cleanup(); }
 void QtPanel::Cleanup()
@@ -55,13 +60,142 @@ void QtPanel::Cleanup()
 		delete this->wrapwire;
 		this->wrapwire = NULL;
 	}
-	if (this->weights != NULL)
-	{
-		this->weights->Stop();
-		delete this->weights;
-		this->weights = NULL;
-	}
 }
+
+void QtPanel::ShowContextMenu(const QPoint &p)
+{
+	QPoint globalPos = this->mapToGlobal(p);
+
+	QMenu menu(this);
+
+	QAction setImage("Set &Image...", this);
+
+	QAction showCalcBoxes("Show Calculation &Boxes", this); showCalcBoxes.setCheckable(true); showCalcBoxes.setChecked(this->showCalculationBlocks);
+
+#define CHECK_BOX_OPT(name, text, checked, menu) QAction name(text, this); name.setCheckable(true); name.setChecked(checked); menu.addAction(&name);
+
+	QMenu availSizes("&Minimum Window", this);
+	CHECK_BOX_OPT(as512 , "&512x512",   this->availSize ==  512, availSizes);
+	CHECK_BOX_OPT(as1024, "&1024x1024", this->availSize == 1024, availSizes);
+	CHECK_BOX_OPT(as2048, "&2048x2048", this->availSize == 2048, availSizes);
+	CHECK_BOX_OPT(as4096, "&4096x4096", this->availSize == 4096, availSizes);
+
+	Weights::Settings settings = this->livewire->GetSettings();
+
+	QAction grysclSettings("Default &Grayscale Settings", this); grysclSettings.setCheckable(true); grysclSettings.setChecked(settings == Weights::GrayscaleSettings);
+	QAction colorSettings ("Default &Color Settings",     this); colorSettings.setCheckable(true);  colorSettings.setChecked (settings == Weights::ColorSettings    );
+
+	QMenu sttngs("&Settings", this);
+	QMenu method("&Coalescing Method", this); sttngs.addMenu(&method);
+	CHECK_BOX_OPT(red,      "&Red Channel",     settings.Method == Weights::RedChannel,   method);
+	CHECK_BOX_OPT(green,    "&Green Channel",   settings.Method == Weights::GreenChannel, method);
+	CHECK_BOX_OPT(blue,     "&Blue Channel",    settings.Method == Weights::BlueChannel,  method);
+	CHECK_BOX_OPT(avg,      "&Average RGB",     settings.Method == Weights::AvgRGB,       method);
+	CHECK_BOX_OPT(luma,     "&Luma",            settings.Method == Weights::Luma,         method);
+	CHECK_BOX_OPT(luma601,  "Luma Rec &601",    settings.Method == Weights::Luma601,      method);
+	CHECK_BOX_OPT(lumaSMPTE,"Luma SMPTE &240M", settings.Method == Weights::LumaSMPTE,    method);
+	CHECK_BOX_OPT(hsv,      "Weighted HS&V",    settings.Method == Weights::WeightedHSV,  method);
+	CHECK_BOX_OPT(hsl,      "Weighted &HSL",    settings.Method == Weights::WeightedHSL,  method);
+	CHECK_BOX_OPT(hsi,      "Weighted HS&I",    settings.Method == Weights::WeightedHSI,  method);
+
+	QMenu pixel("&Pixel Reduction", this); sttngs.addMenu(&pixel);
+	CHECK_BOX_OPT(pixelNone,    "&None",                  settings.PixelReduction == Weights::NoPixelReduction,  pixel);
+	CHECK_BOX_OPT(pixelMedian2, "&Median (2px window)",   settings.PixelReduction == Weights::Median2pxWindow,   pixel);
+	CHECK_BOX_OPT(pixelMedian3, "&Median (3px window)",   settings.PixelReduction == Weights::Median3pxWindow,   pixel);
+	CHECK_BOX_OPT(pixelMedian4, "&Median (4px window)",   settings.PixelReduction == Weights::Median4pxWindow,   pixel);
+	CHECK_BOX_OPT(pixelMedian5, "&Median (5px window)",   settings.PixelReduction == Weights::Median5pxWindow,   pixel);
+	CHECK_BOX_OPT(pixelMean2,   "&Mean (2px window)",     settings.PixelReduction == Weights::Mean2pxWindow,     pixel);
+	CHECK_BOX_OPT(pixelMean3,   "&Mean (3px window)",     settings.PixelReduction == Weights::Mean3pxWindow,     pixel);
+	CHECK_BOX_OPT(pixelMean4,   "&Mean (4px window)",     settings.PixelReduction == Weights::Mean4pxWindow,     pixel);
+	CHECK_BOX_OPT(pixelMean5,   "&Mean (5px window)",     settings.PixelReduction == Weights::Mean5pxWindow,     pixel);
+	CHECK_BOX_OPT(pixelGaus3,   "&Gaussian (3px window)", settings.PixelReduction == Weights::Gaussian3pxWindow, pixel);
+	CHECK_BOX_OPT(pixelGaus4,   "&Gaussian (4px window)", settings.PixelReduction == Weights::Gaussian4pxWindow, pixel);
+	CHECK_BOX_OPT(pixelGaus5,   "&Gaussian (5px window)", settings.PixelReduction == Weights::Gaussian5pxWindow, pixel);
+
+	QMenu noise("&Noise Reduction", this); sttngs.addMenu(&noise);
+	CHECK_BOX_OPT(noiseNone,    "&None",                  settings.NoiseReduction == Weights::NoNoiseReduction,        noise);
+	CHECK_BOX_OPT(noiseMedian3, "&Median (3px window)",   settings.NoiseReduction == Weights::MedianFilter3pxWindow,   noise);
+	CHECK_BOX_OPT(noiseMedian5, "&Median (5px window)",   settings.NoiseReduction == Weights::MedianFilter5pxWindow,   noise);
+	CHECK_BOX_OPT(noiseMean3,   "&Mean (3px window)",     settings.NoiseReduction == Weights::MeanFilter3pxWindow,     noise);
+	CHECK_BOX_OPT(noiseMean5,   "&Mean (5px window)",     settings.NoiseReduction == Weights::MeanFilter5pxWindow,     noise);
+	CHECK_BOX_OPT(noiseGaus3,   "&Gaussian (3px window)", settings.NoiseReduction == Weights::GaussianFilter3pxWindow, noise);
+	CHECK_BOX_OPT(noiseGaus5,   "&Gaussian (5px window)", settings.NoiseReduction == Weights::GaussianFilter5pxWindow, noise);
+
+	QMenu edged("&Edge Detection", this); sttngs.addMenu(&edged);
+	CHECK_BOX_OPT(edgeNone,  "&None",  settings.EdgeDetection == Weights::NoEdgeDetection, edged);
+	CHECK_BOX_OPT(edgeSobel, "&Sobel", settings.EdgeDetection == Weights::Sobel,           edged);
+
+	QMenu accnt("&Accentuation", this); sttngs.addMenu(&accnt);
+	CHECK_BOX_OPT(accntNone,    "&None",    settings.Accentuation == Weights::NoAccentuation, accnt);
+	CHECK_BOX_OPT(accntSigmoid, "&Sigmoid", settings.Accentuation == Weights::Sigmoid,        accnt);
+
+	QAction invert("&Invert", this); invert.setCheckable(true); invert.setChecked(settings.Invert); sttngs.addAction(&invert);
+
+	menu.addAction(&setImage);
+	menu.addAction(&showCalcBoxes);
+	menu.addMenu(&availSizes);
+	menu.addSeparator();
+	menu.addAction(&grysclSettings);
+	menu.addAction(&colorSettings);
+	menu.addMenu(&sttngs);
+
+	QAction* selectedItem = menu.exec(globalPos);
+	if (selectedItem)
+	{
+		if (selectedItem == &setImage)
+		{
+			QString fileName = QFileDialog::getOpenFileName(this, "Open Image", QDir::currentPath(), "Image Files (*.png *.jpg *.bmp)");
+			if (!fileName.isNull()) { QImage img(fileName); this->SetImage(img); }
+		}
+		else if (selectedItem == &showCalcBoxes) { this->showCalculationBlocks = !this->showCalculationBlocks; this->update(); }
+		else if (selectedItem == &as512 ) { this->availSize =  512; }
+		else if (selectedItem == &as1024) { this->availSize = 1024; }
+		else if (selectedItem == &as2048) { this->availSize = 2048; }
+		else if (selectedItem == &as4096) { this->availSize = 4096; }
+/*		else if (selectedItem == &grysclSettings) { this->weights->ChangeSettings(Weights::GrayscaleSettings); }
+		else if (selectedItem == &colorSettings)  { this->weights->ChangeSettings(Weights::ColorSettings    ); }
+		else if (selectedItem == &red)       { settings.Method = Weights::RedChannel;   this->weights->ChangeSettings(settings); }
+		else if (selectedItem == &green)     { settings.Method = Weights::GreenChannel; this->weights->ChangeSettings(settings); }
+		else if (selectedItem == &blue)      { settings.Method = Weights::BlueChannel;  this->weights->ChangeSettings(settings); }
+		else if (selectedItem == &avg)       { settings.Method = Weights::AvgRGB;       this->weights->ChangeSettings(settings); }
+		else if (selectedItem == &luma)      { settings.Method = Weights::Luma;         this->weights->ChangeSettings(settings); }
+		else if (selectedItem == &luma601)   { settings.Method = Weights::Luma601;      this->weights->ChangeSettings(settings); }
+		else if (selectedItem == &lumaSMPTE) { settings.Method = Weights::LumaSMPTE;    this->weights->ChangeSettings(settings); }
+		else if (selectedItem == &hsv)       { settings.Method = Weights::WeightedHSV;  this->weights->ChangeSettings(settings); }
+		else if (selectedItem == &hsl)       { settings.Method = Weights::WeightedHSL;  this->weights->ChangeSettings(settings); }
+		else if (selectedItem == &hsi)       { settings.Method = Weights::WeightedHSI;  this->weights->ChangeSettings(settings); }*/
+
+/*	CHECK_BOX_OPT(pixelNone,    "&None",                  settings.PixelReduction == Weights::NoPixelReduction,  pixel);
+	CHECK_BOX_OPT(pixelMedian2, "&Median (2px window)",   settings.PixelReduction == Weights::Median2pxWindow,   pixel);
+	CHECK_BOX_OPT(pixelMedian3, "&Median (3px window)",   settings.PixelReduction == Weights::Median3pxWindow,   pixel);
+	CHECK_BOX_OPT(pixelMedian4, "&Median (4px window)",   settings.PixelReduction == Weights::Median4pxWindow,   pixel);
+	CHECK_BOX_OPT(pixelMedian5, "&Median (5px window)",   settings.PixelReduction == Weights::Median5pxWindow,   pixel);
+	CHECK_BOX_OPT(pixelMean2,   "&Mean (2px window)",     settings.PixelReduction == Weights::Mean2pxWindow,     pixel);
+	CHECK_BOX_OPT(pixelMean3,   "&Mean (3px window)",     settings.PixelReduction == Weights::Mean3pxWindow,     pixel);
+	CHECK_BOX_OPT(pixelMean4,   "&Mean (4px window)",     settings.PixelReduction == Weights::Mean4pxWindow,     pixel);
+	CHECK_BOX_OPT(pixelMean5,   "&Mean (5px window)",     settings.PixelReduction == Weights::Mean5pxWindow,     pixel);
+	CHECK_BOX_OPT(pixelGaus3,   "&Gaussian (3px window)", settings.PixelReduction == Weights::Gaussian3pxWindow, pixel);
+	CHECK_BOX_OPT(pixelGaus4,   "&Gaussian (4px window)", settings.PixelReduction == Weights::Gaussian4pxWindow, pixel);
+	CHECK_BOX_OPT(pixelGaus5,   "&Gaussian (5px window)", settings.PixelReduction == Weights::Gaussian5pxWindow, pixel);
+
+	CHECK_BOX_OPT(noiseNone,    "&None",                  settings.NoiseReduction == Weights::NoNoiseReduction,        noise);
+	CHECK_BOX_OPT(noiseMedian3, "&Median (3px window)",   settings.NoiseReduction == Weights::MedianFilter3pxWindow,   noise);
+	CHECK_BOX_OPT(noiseMedian5, "&Median (5px window)",   settings.NoiseReduction == Weights::MedianFilter5pxWindow,   noise);
+	CHECK_BOX_OPT(noiseMean3,   "&Mean (3px window)",     settings.NoiseReduction == Weights::MeanFilter3pxWindow,     noise);
+	CHECK_BOX_OPT(noiseMean5,   "&Mean (5px window)",     settings.NoiseReduction == Weights::MeanFilter5pxWindow,     noise);
+	CHECK_BOX_OPT(noiseGaus3,   "&Gaussian (3px window)", settings.NoiseReduction == Weights::GaussianFilter3pxWindow, noise);
+	CHECK_BOX_OPT(noiseGaus5,   "&Gaussian (5px window)", settings.NoiseReduction == Weights::GaussianFilter5pxWindow, noise);
+	*/
+/*		else if (selectedItem == &edgeNone)     { settings.EdgeDetection = Weights::NoEdgeDetection; this->weights->ChangeSettings(settings); }
+		else if (selectedItem == &edgeSobel)    { settings.EdgeDetection = Weights::Sobel;           this->weights->ChangeSettings(settings); }
+		else if (selectedItem == &accntNone)    { settings.Accentuation = Weights::NoAccentuation;   this->weights->ChangeSettings(settings); }
+		else if (selectedItem == &accntSigmoid) { settings.Accentuation = Weights::Sigmoid;          this->weights->ChangeSettings(settings); }
+		else if (selectedItem == &invert)       { settings.Invert = !settings.Invert;                this->weights->ChangeSettings(settings); }*/
+		else { /* unknown item was chosen */ }
+	}
+	else { /* nothing was chosen */ }
+}
+
 
 void QtPanel::SetImage(QImage &img)
 {
@@ -70,14 +204,14 @@ void QtPanel::SetImage(QImage &img)
 	{
 		// Basic image updating
 		bool gray = img.format() == QImage::Format_Indexed8 && img.isGrayscale();
-		this->image = gray ? img : img.convertToFormat(QImage::Format_RGB32);
+		this->image = gray ? img.copy() : img.convertToFormat(QImage::Format_RGB32);
 		//this->image.SetResolution(this->dpiX, this->dpiY); // TODO: DPI stuff
 		uint w = this->w = img.width(), h = this->h = img.height();
 
 		// Setup the calculators
-		this->weights = new WeightCalculator(w, h, WeightCalculator::GrayScaleSettings);
-		this->weights->SetImage(this->image.bits(), gray ? WeightCalculator::GrayscaleByte : WeightCalculator::RGB, this->image.bytesPerLine());
-		AddEventsToThreaded(this->livewire = new LivewireCalculator(this->weights));
+		AddEventsToThreaded(this->livewire = new LivewireCalculator());
+		this->livewire->SetSettings(img.allGray() ? Weights::GrayscaleSettings : Weights::ColorSettings);
+		this->livewire->SetImage(this->image.bits(), w, h, gray ? Weights::GrayscaleByte : Weights::RGB, this->image.bytesPerLine());
 
 		// Update variables for the new image size
 		this->prevwires = QImage(w, h, QImage::Format_ARGB32_Premultiplied);
@@ -114,15 +248,16 @@ void QtPanel::paintEvent(QPaintEvent *evnt)
 		g.drawImage(0, 0, this->image); // draw the image itself
 
 		// Draw the not calculated / calculating blocks
-		g.setPen(Qt::black);
-		QVector<QPoint> done, doing, not_done;
-		uint block_size = this->weights->GetBlocksCalculated(done, doing, not_done);
-		g.setBrush(QBrush(QColor(0xFF, 0, 0, 0x30)));
-		for (int i = 0; i < not_done.count(); ++i)
-			g.drawRect(not_done[i].x(), not_done[i].y(), block_size, block_size);
-		g.setBrush(QBrush(QColor(0xFF, 0xFF, 0, 0x30)));
-		for (int i = 0; i < doing.count(); ++i)
-			g.drawRect(doing[i].x(), doing[i].y(), block_size, block_size);
+		if (this->showCalculationBlocks)
+		{
+			/*TODO: g.setPen(Qt::black);
+			QVector<QPoint> done, doing, xdone;
+			uint block_size = this->weights->GetBlocksCalculated(done, doing, xdone);
+			g.setBrush(NotCalculatedBrush);
+			for (int i = 0; i < xdone.count(); ++i)	g.drawRect(xdone[i].x(), xdone[i].y(), block_size, block_size);
+			g.setBrush(CalculatingBrush);
+			for (int i = 0; i < doing.count(); ++i)	g.drawRect(doing[i].x(), doing[i].y(), block_size, block_size);*/
+		}
 
 		if (this->livewire != NULL)
 		{
@@ -196,9 +331,9 @@ void QtPanel::MouseClicked(QMouseEvent *evnt, bool dbl)
 		}
 		else if (have_points && this->wrapwire == NULL)
 		{
-			// Start wrapping from a new point
-			this->wrapwire = lw;
-			AddEventsToThreaded(this->livewire = new LivewireCalculator(this->weights));
+			// TODO: Start wrapping from a new point
+			//this->wrapwire = lw;
+			//AddEventsToThreaded(this->livewire = new LivewireCalculator(this->weights));
 		}
 
 		if (have_points)
@@ -214,7 +349,7 @@ void QtPanel::MouseClicked(QMouseEvent *evnt, bool dbl)
 		}
 
 		// Start preparing the next livewire
-		this->livewire->Start(p.x(), p.y(), 512);
+		this->livewire->Start(p.x(), p.y(), this->availSize / 2);
 
 		this->points.push_back(p);
 		this->update();

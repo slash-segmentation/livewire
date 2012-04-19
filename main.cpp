@@ -24,13 +24,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <QtGui/QApplication>
 #include <QImage>
 
-#include "WeightCalculator.h"
-
 int main(int argc, char *argv[])
 {
 	QApplication app(argc, argv);
 	Livewire::QtPanel w;
 	QImage img((argc > 1) ? argv[1] : "test.png");
+	//QImage img((argc > 1) ? argv[1] : "test-color-0.jpg");
 	w.SetImage(img);
 	w.show();
 	return app.exec();

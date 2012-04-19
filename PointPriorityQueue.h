@@ -31,6 +31,7 @@ namespace Livewire
 	class PointPriorityQueue
 	{
 		/* Necessary public functions:
+		 *  void SetSize(uint w, uint h)
 		 *  void Enqueue(uint x, uint y, uint I, uint score)		O(log(n))
 		 *  bool Dequeue(uint& x, uint& y, uint& I, uint& score)	O(log(n))
 		 *	bool Contains(uint x, uint y) const						O(log(n))	Only for LivewireCalculator
@@ -42,15 +43,18 @@ namespace Livewire
 
 	public:
 		struct Entry;
+		static void EntryClear(); // This frees up pooled entry memory. TODO: call this function somewhere.
 
 	private:
-		const uint _width, _height;
+		uint _w, _h;
 		vector<Entry*> _heap;
 		SparseMatrix<size_t*> _map;
 
 	public:
+		PointPriorityQueue();
 		PointPriorityQueue(uint w, uint h);
 		~PointPriorityQueue();
+		void SetSize(uint w, uint h); // basically deconstructor followed by constructor
 
 		void Enqueue(uint x, uint y, uint I, uint score);
 //		void Enqueue(uint x, uint y, uint score);

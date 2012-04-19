@@ -19,8 +19,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 **/
 
-#ifndef WEIGHT_CALCULATOR_H
-#define WEIGHT_CALCULATOR_H
+#ifndef WEIGHTS_H
+#define WEIGHTS_H
 
 #include "general.h"
 
@@ -35,7 +35,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 namespace Livewire
 {
-	class WeightCalculator : public Threaded
+	class Weights : public Threaded
 	{
 	public:
 		enum DataFormat
@@ -100,24 +100,26 @@ namespace Livewire
 				AccentuationMethod Accentuation = Sigmoid,
 				bool Invert = false
 				);
+
+			bool operator ==(const Settings& rhs) const;
 		};
 
-		static const Settings GrayScaleSettings;
+		static const Settings GrayscaleSettings;
 		static const Settings ColorSettings;
 
 	private:
 		Settings _settings;
 		uint _filter_overflow;
 
-		const uint _width_raw, _height_raw;
+		uint _width_raw, _height_raw;
 		uint _stride;
 		DataFormat _format;
 		const byte *_data_raw;
 
-		const uint _width, _height, _scale;
+		uint _width, _height, _scale;
 		byte **_data;
 
-		const uint _width_status, _height_status, _last_col_width;
+		uint _width_status, _height_status, _last_col_width;
 		byte *_status;
 		PointPriorityQueue _block_queue;
 
@@ -125,14 +127,19 @@ namespace Livewire
 		QWaitCondition _blocks_queued, _block_finished;
 
 		// prevent copying
-		WeightCalculator(const WeightCalculator&);
-		WeightCalculator& operator=(const WeightCalculator&);
+		Weights(const Weights&);
+		Weights& operator=(const Weights&);
+
+		void UpdatedScaleOrSize();
 
 	public:
-		WeightCalculator(uint w, uint h, const Settings& settings);
-		~WeightCalculator();
-
-		void ChangeSettings(const Settings& settings);
+		Weights();
+		//Weights(uint w, uint h, const Settings& settings);
+		~Weights();
+		
+		void SetImage(const byte* image, uint W, uint H, DataFormat format, uint stride);
+		void SetSettings(const Settings& settings);
+		const Settings& GetSettings() const;
 
 		// points in the original size, not reduced
 		// points are of the upper-left corner of each calculated block
@@ -147,16 +154,15 @@ namespace Livewire
 		// returns true if the point is obtainable, false if the point is out of bounds of the calculation region
 		// if the requested point is not yet calculated but has been requested this function will block until it is ready
 		bool Get(uint x, uint y, byte* w) /*const*/;
+		
+		inline uint GetScale()          const { return this->_scale;      }
 
-		uint GetScale() const;
+		inline uint GetOriginalWidth()  const { return this->_width_raw;  }
+		inline uint GetOriginalHeight() const { return this->_height_raw; }
 
-		uint GetOriginalWidth() const;
-		uint GetOriginalHeight() const;
+		inline uint GetReducedWidth()   const { return this->_width;      }
+		inline uint GetReducedHeight()  const { return this->_height;     }
 
-		uint GetReducedWidth() const;
-		uint GetReducedHeight() const;
-
-		void SetImage(const byte* imageData, DataFormat format, uint stride);
 		void CalculateRegion(uint x, uint y, uint min_room); // indices of the reduced size
 		virtual void Stop();
 	protected:

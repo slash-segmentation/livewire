@@ -22,7 +22,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #ifndef LIVEWIREQTPANEL_H
 #define LIVEWIREQTPANEL_H
 
-#include "WeightCalculator.h"
 #include "LivewireCalculator.h"
 
 #include <QWidget>
@@ -49,15 +48,20 @@ namespace Livewire
 		static const QBrush MouseBrush;
 		static const QBrush PointBrush;
 
+		static const QBrush NotCalculatedBrush;
+		static const QBrush CalculatingBrush;
+
 	private:
 		QImage image;
 		uint w, h;
 		QPoint mouse;
 		QVector<QPoint> points;
-		WeightCalculator *weights;
 		LivewireCalculator *livewire;
 		LivewireCalculator *wrapwire;
 		QImage prevwires;
+
+		bool showCalculationBlocks;
+		uint availSize;
 
 		void Cleanup();
 
@@ -87,6 +91,9 @@ namespace Livewire
 		/// <param name="p">The point to move</param>
 		/// <returns>The adjusted point</returns>
 		void getPointInBounds(QPoint &p);
+
+	private slots:
+		void ShowContextMenu(const QPoint &p);
 	};
 }
 
