@@ -27,6 +27,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 using namespace Livewire;
 
+#include <QMutex>
+static QMutex bp_lock;
+
 typedef std::map<size_t, vector<void*> > bp_avail_map;
 static bp_avail_map bp_avail;
 
@@ -34,11 +37,13 @@ void *BlockPool::Get(size_t size)
 {
 	void *block;
 	size = NextPowerOfTwo(size);
+	bp_lock.lock();
 	bp_avail_map::iterator i = bp_avail.find(size);
 	if (i == bp_avail.end() || i->second.size() == 0)
 		*(size_t*)(block = malloc(size + sizeof(size_t))) = size;
 	else
 		block = i->second.pop_back();
+	bp_lock.unlock();
 	return (byte*)block + sizeof(size_t);
 }
 void *BlockPool::Resize(void *block, size_t size)
@@ -52,10 +57,13 @@ void *BlockPool::Resize(void *block, size_t size)
 void BlockPool::Return(void *block)
 {
 	block = (byte*)block - sizeof(size_t);
+	bp_lock.lock();
 	bp_avail[ (*(size_t*)block) ].push_back(block);
+	bp_lock.unlock();
 }
 void BlockPool::Clear()
 {
+	bp_lock.lock();
 	for (bp_avail_map::iterator i = bp_avail.begin(); i != bp_avail.end(); ++i)
 	{
 		size_t len = i->second.size();
@@ -64,4 +72,5 @@ void BlockPool::Clear()
 		i->second.reset();
 	}
 	bp_avail.clear();
+	bp_lock.unlock();
 }

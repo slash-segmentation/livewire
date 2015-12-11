@@ -48,7 +48,7 @@ namespace Livewire
 
 	protected:
 		Threaded(char *name);
-		~Threaded();
+		virtual ~Threaded();
 
 	protected:
 		void SetProgress(int value);

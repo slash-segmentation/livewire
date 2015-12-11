@@ -63,7 +63,7 @@ namespace Livewire
 
 	public:
 		LivewireCalculator();
-		~LivewireCalculator();
+		virtual ~LivewireCalculator();
 
 		LivewireCalculator *Copy();
 
