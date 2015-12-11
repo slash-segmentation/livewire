@@ -40,9 +40,9 @@ namespace Livewire
 	public:
 		enum DataFormat
 		{
-			GrayscaleByte,
-			GrayscaleUShort,
-			RGB
+			GrayscaleByte = 1,
+			GrayscaleUShort = 2,
+			RGB = 4,
 		};
 
 		enum CoalescingMethod
@@ -66,46 +66,49 @@ namespace Livewire
 			MedianFilter3pxWindow   = 0x13, MedianFilter5pxWindow   = 0x15,
 			MeanFilter3pxWindow     = 0x23, MeanFilter5pxWindow     = 0x25,
 			GaussianFilter3pxWindow = 0x33, GaussianFilter5pxWindow = 0x35,
-			// TODO: Other RCRS filter, // http://en.wikipedia.org/wiki/Noise_reduction#Nonlinear_filters
-			// TODO: k-Nearest Neighbor Filtering, // http://www.anirudh.net/courses/cse585/project1/
-			// TODO: AnisotropicDiffusion, // http://en.wikipedia.org/wiki/Anisotropic_diffusion
+			// TODO: AnisotropicDiffusion, http://en.wikipedia.org/wiki/Anisotropic_diffusion
+			// TODO: Other RCRS filters: max, min, LUM, http://en.wikipedia.org/wiki/Noise_reduction#Nonlinear_filters
+			// TODO: k-Nearest Neighbor Filtering, http://www.anirudh.net/courses/cse585/project1/
+		};
+		enum AccentuationMethod
+		{
+			NoAccentuation = 0x01,
+			Sigmoid = 0x11,
+			// TODO: histogram equalization [+exact and/or CLAHE]
+			// TODO: linear
 		};
 		enum EdgeDetectionMethod
 		{
 			NoEdgeDetection = 0x01,
-			Sobel = 0x13,
-			// TODO: Canny, // http://en.wikipedia.org/wiki/Canny_edge_detector http://homepages.inf.ed.ac.uk/rbf/HIPR2/canny.htm
-		};
-		enum AccentuationMethod
-		{
-			NoAccentuation,
-			Sigmoid,
-			// TODO: Linear
+			Sobel3  = 0x13, Sobel5  = 0x15,
+			Scharr  = 0x23,
+			Canny   = 0x33,
 		};
 
 		struct Settings
 		{
 			CoalescingMethod Method;
+			bool Invert;
 			PixelReductionMethod PixelReduction;
 			NoiseReductionMethod NoiseReduction;
-			EdgeDetectionMethod EdgeDetection;
 			AccentuationMethod Accentuation;
-			bool Invert;
+			EdgeDetectionMethod EdgeDetection;
 
 			Settings(
 				CoalescingMethod Method = BlueChannel,
+				bool Invert = false,
 				PixelReductionMethod PixelReduction = Mean2pxWindow,
 				NoiseReductionMethod NoiseReduction = NoNoiseReduction,
-				EdgeDetectionMethod EdgeDetection = NoEdgeDetection,
 				AccentuationMethod Accentuation = Sigmoid,
-				bool Invert = false
+				EdgeDetectionMethod EdgeDetection = NoEdgeDetection
 				);
 
 			bool operator ==(const Settings& rhs) const;
+			inline bool operator !=(const Settings& rhs) const { return !this->operator==(rhs); }
 		};
 
-		static const Settings GrayscaleSettings;
-		static const Settings ColorSettings;
+		static const Settings GrayscaleSettings; // the default settings
+		static const Settings ColorSettings; // HSV + Sobel5 (in addition to the grayscale settings)
 
 	private:
 		Settings _settings;
@@ -123,8 +126,8 @@ namespace Livewire
 		byte *_status;
 		PointPriorityQueue _block_queue;
 
-		QMutex _queue_lock, _status_lock;
-		QWaitCondition _blocks_queued, _block_finished;
+		mutable QMutex _queue_lock, _status_lock;
+		mutable QWaitCondition _blocks_queued, _block_finished;
 
 		// prevent copying
 		Weights(const Weights&);
@@ -134,8 +137,7 @@ namespace Livewire
 
 	public:
 		Weights();
-		//Weights(uint w, uint h, const Settings& settings);
-		~Weights();
+		virtual ~Weights();
 		
 		void SetImage(const byte* image, uint W, uint H, DataFormat format, uint stride);
 		void SetSettings(const Settings& settings);
@@ -153,7 +155,10 @@ namespace Livewire
 		// w = (out) the weight
 		// returns true if the point is obtainable, false if the point is out of bounds of the calculation region
 		// if the requested point is not yet calculated but has been requested this function will block until it is ready
-		bool Get(uint x, uint y, byte* w) /*const*/;
+		bool Get(uint x, uint y, byte* w) const;
+
+		// will block while there are pending pixels to be calculated then save the weights as an image
+		void SaveImage(const char* name) const;
 		
 		inline uint GetScale()          const { return this->_scale;      }
 
