@@ -36,7 +36,7 @@ const QBrush QtPanel::NotCalculatedBrush(QColor(0xFF, 0, 0, 0x30));
 const QBrush QtPanel::CalculatingBrush(QColor(0xFF, 0xFF, 0, 0x30));
 
 QtPanel::QtPanel(QWidget *parent) : QWidget(parent),
-	livewire(NULL), wrapwire(NULL), w(0), h(0), showCalculationBlocks(false), availSize(1024)
+	livewire(NULL), wrapwire(NULL), w(0), h(0), showCalculationBlocks(false), availSize(4096) // 1024)
 {
 	this->setMouseTracking(true);
 	this->setWindowTitle("Livewire Demo");
@@ -70,7 +70,7 @@ void QtPanel::ShowContextMenu(const QPoint &p)
 
 	QAction setImage("Set &Image...", this);
 
-	QAction showCalcBoxes("Show Calculation &Boxes", this); showCalcBoxes.setCheckable(true); showCalcBoxes.setChecked(this->showCalculationBlocks);
+	//QAction showCalcBoxes("Show Calculation &Boxes", this); showCalcBoxes.setCheckable(true); showCalcBoxes.setChecked(this->showCalculationBlocks);
 
 #define CHECK_BOX_OPT(name, text, checked, menu) QAction name(text, this); name.setCheckable(true); name.setChecked(checked); menu.addAction(&name);
 
@@ -98,41 +98,44 @@ void QtPanel::ShowContextMenu(const QPoint &p)
 	CHECK_BOX_OPT(hsl,      "Weighted &HSL",    settings.Method == Weights::WeightedHSL,  method);
 	CHECK_BOX_OPT(hsi,      "Weighted HS&I",    settings.Method == Weights::WeightedHSI,  method);
 
+	QAction invert("&Invert", this); invert.setCheckable(true); invert.setChecked(settings.Invert); sttngs.addAction(&invert);
+
 	QMenu pixel("&Pixel Reduction", this); sttngs.addMenu(&pixel);
-	CHECK_BOX_OPT(pixelNone,    "&None",                  settings.PixelReduction == Weights::NoPixelReduction,  pixel);
-	CHECK_BOX_OPT(pixelMedian2, "&Median (2px window)",   settings.PixelReduction == Weights::Median2pxWindow,   pixel);
-	CHECK_BOX_OPT(pixelMedian3, "&Median (3px window)",   settings.PixelReduction == Weights::Median3pxWindow,   pixel);
-	CHECK_BOX_OPT(pixelMedian4, "&Median (4px window)",   settings.PixelReduction == Weights::Median4pxWindow,   pixel);
-	CHECK_BOX_OPT(pixelMedian5, "&Median (5px window)",   settings.PixelReduction == Weights::Median5pxWindow,   pixel);
-	CHECK_BOX_OPT(pixelMean2,   "&Mean (2px window)",     settings.PixelReduction == Weights::Mean2pxWindow,     pixel);
-	CHECK_BOX_OPT(pixelMean3,   "&Mean (3px window)",     settings.PixelReduction == Weights::Mean3pxWindow,     pixel);
-	CHECK_BOX_OPT(pixelMean4,   "&Mean (4px window)",     settings.PixelReduction == Weights::Mean4pxWindow,     pixel);
-	CHECK_BOX_OPT(pixelMean5,   "&Mean (5px window)",     settings.PixelReduction == Weights::Mean5pxWindow,     pixel);
-	CHECK_BOX_OPT(pixelGaus3,   "&Gaussian (3px window)", settings.PixelReduction == Weights::Gaussian3pxWindow, pixel);
-	CHECK_BOX_OPT(pixelGaus4,   "&Gaussian (4px window)", settings.PixelReduction == Weights::Gaussian4pxWindow, pixel);
-	CHECK_BOX_OPT(pixelGaus5,   "&Gaussian (5px window)", settings.PixelReduction == Weights::Gaussian5pxWindow, pixel);
+	CHECK_BOX_OPT(pixelNone,    "&None",                 settings.PixelReduction == Weights::NoPixelReduction,  pixel);
+	CHECK_BOX_OPT(pixelMedian2, "Median (2px window)",   settings.PixelReduction == Weights::Median2pxWindow,   pixel);
+	CHECK_BOX_OPT(pixelMedian3, "Median (3px window)",   settings.PixelReduction == Weights::Median3pxWindow,   pixel);
+	CHECK_BOX_OPT(pixelMedian4, "Median (4px window)",   settings.PixelReduction == Weights::Median4pxWindow,   pixel);
+	CHECK_BOX_OPT(pixelMedian5, "Median (5px window)",   settings.PixelReduction == Weights::Median5pxWindow,   pixel);
+	CHECK_BOX_OPT(pixelMean2,   "Mean (2px window)",     settings.PixelReduction == Weights::Mean2pxWindow,     pixel);
+	CHECK_BOX_OPT(pixelMean3,   "Mean (3px window)",     settings.PixelReduction == Weights::Mean3pxWindow,     pixel);
+	CHECK_BOX_OPT(pixelMean4,   "Mean (4px window)",     settings.PixelReduction == Weights::Mean4pxWindow,     pixel);
+	CHECK_BOX_OPT(pixelMean5,   "Mean (5px window)",     settings.PixelReduction == Weights::Mean5pxWindow,     pixel);
+	CHECK_BOX_OPT(pixelGaus3,   "Gaussian (3px window)", settings.PixelReduction == Weights::Gaussian3pxWindow, pixel);
+	CHECK_BOX_OPT(pixelGaus4,   "Gaussian (4px window)", settings.PixelReduction == Weights::Gaussian4pxWindow, pixel);
+	CHECK_BOX_OPT(pixelGaus5,   "Gaussian (5px window)", settings.PixelReduction == Weights::Gaussian5pxWindow, pixel);
 
 	QMenu noise("&Noise Reduction", this); sttngs.addMenu(&noise);
-	CHECK_BOX_OPT(noiseNone,    "&None",                  settings.NoiseReduction == Weights::NoNoiseReduction,        noise);
-	CHECK_BOX_OPT(noiseMedian3, "&Median (3px window)",   settings.NoiseReduction == Weights::MedianFilter3pxWindow,   noise);
-	CHECK_BOX_OPT(noiseMedian5, "&Median (5px window)",   settings.NoiseReduction == Weights::MedianFilter5pxWindow,   noise);
-	CHECK_BOX_OPT(noiseMean3,   "&Mean (3px window)",     settings.NoiseReduction == Weights::MeanFilter3pxWindow,     noise);
-	CHECK_BOX_OPT(noiseMean5,   "&Mean (5px window)",     settings.NoiseReduction == Weights::MeanFilter5pxWindow,     noise);
-	CHECK_BOX_OPT(noiseGaus3,   "&Gaussian (3px window)", settings.NoiseReduction == Weights::GaussianFilter3pxWindow, noise);
-	CHECK_BOX_OPT(noiseGaus5,   "&Gaussian (5px window)", settings.NoiseReduction == Weights::GaussianFilter5pxWindow, noise);
-
-	QMenu edged("&Edge Detection", this); sttngs.addMenu(&edged);
-	CHECK_BOX_OPT(edgeNone,  "&None",  settings.EdgeDetection == Weights::NoEdgeDetection, edged);
-	CHECK_BOX_OPT(edgeSobel, "&Sobel", settings.EdgeDetection == Weights::Sobel,           edged);
+	CHECK_BOX_OPT(noiseNone,    "&None",                 settings.NoiseReduction == Weights::NoNoiseReduction,        noise);
+	CHECK_BOX_OPT(noiseMedian3, "Median (3px window)",   settings.NoiseReduction == Weights::MedianFilter3pxWindow,   noise);
+	CHECK_BOX_OPT(noiseMedian5, "Median (5px window)",   settings.NoiseReduction == Weights::MedianFilter5pxWindow,   noise);
+	CHECK_BOX_OPT(noiseMean3,   "Mean (3px window)",     settings.NoiseReduction == Weights::MeanFilter3pxWindow,     noise);
+	CHECK_BOX_OPT(noiseMean5,   "Mean (5px window)",     settings.NoiseReduction == Weights::MeanFilter5pxWindow,     noise);
+	CHECK_BOX_OPT(noiseGaus3,   "Gaussian (3px window)", settings.NoiseReduction == Weights::GaussianFilter3pxWindow, noise);
+	CHECK_BOX_OPT(noiseGaus5,   "Gaussian (5px window)", settings.NoiseReduction == Weights::GaussianFilter5pxWindow, noise);
 
 	QMenu accnt("&Accentuation", this); sttngs.addMenu(&accnt);
 	CHECK_BOX_OPT(accntNone,    "&None",    settings.Accentuation == Weights::NoAccentuation, accnt);
 	CHECK_BOX_OPT(accntSigmoid, "&Sigmoid", settings.Accentuation == Weights::Sigmoid,        accnt);
 
-	QAction invert("&Invert", this); invert.setCheckable(true); invert.setChecked(settings.Invert); sttngs.addAction(&invert);
+	QMenu edged("&Edge Detection", this); sttngs.addMenu(&edged);
+	CHECK_BOX_OPT(edgeNone,   "&None",        settings.EdgeDetection == Weights::NoEdgeDetection, edged);
+	CHECK_BOX_OPT(edgeSobel3, "Sobel (3px)",  settings.EdgeDetection == Weights::Sobel3,          edged);
+	CHECK_BOX_OPT(edgeSobel5, "Sobel (5px)",  settings.EdgeDetection == Weights::Sobel5,          edged);
+	CHECK_BOX_OPT(edgeScharr, "Scharr",       settings.EdgeDetection == Weights::Scharr,          edged);
+	CHECK_BOX_OPT(edgeCanny,  "Canny",        settings.EdgeDetection == Weights::Canny,           edged);
 
 	menu.addAction(&setImage);
-	menu.addAction(&showCalcBoxes);
+	//menu.addAction(&showCalcBoxes);
 	menu.addMenu(&availSizes);
 	menu.addSeparator();
 	menu.addAction(&grysclSettings);
@@ -142,56 +145,58 @@ void QtPanel::ShowContextMenu(const QPoint &p)
 	QAction* selectedItem = menu.exec(globalPos);
 	if (selectedItem)
 	{
+		Weights::Settings orig_settings = settings;
 		if (selectedItem == &setImage)
 		{
 			QString fileName = QFileDialog::getOpenFileName(this, "Open Image", QDir::currentPath(), "Image Files (*.png *.jpg *.bmp)");
 			if (!fileName.isNull()) { QImage img(fileName); this->SetImage(img); }
 		}
-		else if (selectedItem == &showCalcBoxes) { this->showCalculationBlocks = !this->showCalculationBlocks; this->update(); }
+		//else if (selectedItem == &showCalcBoxes) { this->showCalculationBlocks = !this->showCalculationBlocks; this->update(); }
 		else if (selectedItem == &as512 ) { this->availSize =  512; }
 		else if (selectedItem == &as1024) { this->availSize = 1024; }
 		else if (selectedItem == &as2048) { this->availSize = 2048; }
 		else if (selectedItem == &as4096) { this->availSize = 4096; }
-/*		else if (selectedItem == &grysclSettings) { this->weights->ChangeSettings(Weights::GrayscaleSettings); }
-		else if (selectedItem == &colorSettings)  { this->weights->ChangeSettings(Weights::ColorSettings    ); }
-		else if (selectedItem == &red)       { settings.Method = Weights::RedChannel;   this->weights->ChangeSettings(settings); }
-		else if (selectedItem == &green)     { settings.Method = Weights::GreenChannel; this->weights->ChangeSettings(settings); }
-		else if (selectedItem == &blue)      { settings.Method = Weights::BlueChannel;  this->weights->ChangeSettings(settings); }
-		else if (selectedItem == &avg)       { settings.Method = Weights::AvgRGB;       this->weights->ChangeSettings(settings); }
-		else if (selectedItem == &luma)      { settings.Method = Weights::Luma;         this->weights->ChangeSettings(settings); }
-		else if (selectedItem == &luma601)   { settings.Method = Weights::Luma601;      this->weights->ChangeSettings(settings); }
-		else if (selectedItem == &lumaSMPTE) { settings.Method = Weights::LumaSMPTE;    this->weights->ChangeSettings(settings); }
-		else if (selectedItem == &hsv)       { settings.Method = Weights::WeightedHSV;  this->weights->ChangeSettings(settings); }
-		else if (selectedItem == &hsl)       { settings.Method = Weights::WeightedHSL;  this->weights->ChangeSettings(settings); }
-		else if (selectedItem == &hsi)       { settings.Method = Weights::WeightedHSI;  this->weights->ChangeSettings(settings); }*/
-
-/*	CHECK_BOX_OPT(pixelNone,    "&None",                  settings.PixelReduction == Weights::NoPixelReduction,  pixel);
-	CHECK_BOX_OPT(pixelMedian2, "&Median (2px window)",   settings.PixelReduction == Weights::Median2pxWindow,   pixel);
-	CHECK_BOX_OPT(pixelMedian3, "&Median (3px window)",   settings.PixelReduction == Weights::Median3pxWindow,   pixel);
-	CHECK_BOX_OPT(pixelMedian4, "&Median (4px window)",   settings.PixelReduction == Weights::Median4pxWindow,   pixel);
-	CHECK_BOX_OPT(pixelMedian5, "&Median (5px window)",   settings.PixelReduction == Weights::Median5pxWindow,   pixel);
-	CHECK_BOX_OPT(pixelMean2,   "&Mean (2px window)",     settings.PixelReduction == Weights::Mean2pxWindow,     pixel);
-	CHECK_BOX_OPT(pixelMean3,   "&Mean (3px window)",     settings.PixelReduction == Weights::Mean3pxWindow,     pixel);
-	CHECK_BOX_OPT(pixelMean4,   "&Mean (4px window)",     settings.PixelReduction == Weights::Mean4pxWindow,     pixel);
-	CHECK_BOX_OPT(pixelMean5,   "&Mean (5px window)",     settings.PixelReduction == Weights::Mean5pxWindow,     pixel);
-	CHECK_BOX_OPT(pixelGaus3,   "&Gaussian (3px window)", settings.PixelReduction == Weights::Gaussian3pxWindow, pixel);
-	CHECK_BOX_OPT(pixelGaus4,   "&Gaussian (4px window)", settings.PixelReduction == Weights::Gaussian4pxWindow, pixel);
-	CHECK_BOX_OPT(pixelGaus5,   "&Gaussian (5px window)", settings.PixelReduction == Weights::Gaussian5pxWindow, pixel);
-
-	CHECK_BOX_OPT(noiseNone,    "&None",                  settings.NoiseReduction == Weights::NoNoiseReduction,        noise);
-	CHECK_BOX_OPT(noiseMedian3, "&Median (3px window)",   settings.NoiseReduction == Weights::MedianFilter3pxWindow,   noise);
-	CHECK_BOX_OPT(noiseMedian5, "&Median (5px window)",   settings.NoiseReduction == Weights::MedianFilter5pxWindow,   noise);
-	CHECK_BOX_OPT(noiseMean3,   "&Mean (3px window)",     settings.NoiseReduction == Weights::MeanFilter3pxWindow,     noise);
-	CHECK_BOX_OPT(noiseMean5,   "&Mean (5px window)",     settings.NoiseReduction == Weights::MeanFilter5pxWindow,     noise);
-	CHECK_BOX_OPT(noiseGaus3,   "&Gaussian (3px window)", settings.NoiseReduction == Weights::GaussianFilter3pxWindow, noise);
-	CHECK_BOX_OPT(noiseGaus5,   "&Gaussian (5px window)", settings.NoiseReduction == Weights::GaussianFilter5pxWindow, noise);
-	*/
-/*		else if (selectedItem == &edgeNone)     { settings.EdgeDetection = Weights::NoEdgeDetection; this->weights->ChangeSettings(settings); }
-		else if (selectedItem == &edgeSobel)    { settings.EdgeDetection = Weights::Sobel;           this->weights->ChangeSettings(settings); }
-		else if (selectedItem == &accntNone)    { settings.Accentuation = Weights::NoAccentuation;   this->weights->ChangeSettings(settings); }
-		else if (selectedItem == &accntSigmoid) { settings.Accentuation = Weights::Sigmoid;          this->weights->ChangeSettings(settings); }
-		else if (selectedItem == &invert)       { settings.Invert = !settings.Invert;                this->weights->ChangeSettings(settings); }*/
+		else if (selectedItem == &grysclSettings) { settings = Weights::GrayscaleSettings; }
+		else if (selectedItem == &colorSettings)  { settings = Weights::ColorSettings    ; }
+		else if (selectedItem == &red)       { settings.Method = Weights::RedChannel;   }
+		else if (selectedItem == &green)     { settings.Method = Weights::GreenChannel; }
+		else if (selectedItem == &blue)      { settings.Method = Weights::BlueChannel;  }
+		else if (selectedItem == &avg)       { settings.Method = Weights::AvgRGB;       }
+		else if (selectedItem == &luma)      { settings.Method = Weights::Luma;         }
+		else if (selectedItem == &luma601)   { settings.Method = Weights::Luma601;      }
+		else if (selectedItem == &lumaSMPTE) { settings.Method = Weights::LumaSMPTE;    }
+		else if (selectedItem == &hsv)       { settings.Method = Weights::WeightedHSV;  }
+		else if (selectedItem == &hsl)       { settings.Method = Weights::WeightedHSL;  }
+		else if (selectedItem == &hsi)       { settings.Method = Weights::WeightedHSI;  }
+		else if (selectedItem == &invert) { settings.Invert = !settings.Invert; }
+		else if (selectedItem == &pixelNone)    { settings.PixelReduction = Weights::NoPixelReduction; }
+		else if (selectedItem == &pixelMedian2) { settings.PixelReduction = Weights::Median2pxWindow; }
+		else if (selectedItem == &pixelMedian3) { settings.PixelReduction = Weights::Median3pxWindow; }
+		else if (selectedItem == &pixelMedian4) { settings.PixelReduction = Weights::Median4pxWindow; }
+		else if (selectedItem == &pixelMedian5) { settings.PixelReduction = Weights::Median5pxWindow; }
+		else if (selectedItem == &pixelMean2)   { settings.PixelReduction = Weights::Mean2pxWindow; }
+		else if (selectedItem == &pixelMean3)   { settings.PixelReduction = Weights::Mean3pxWindow; }
+		else if (selectedItem == &pixelMean4)   { settings.PixelReduction = Weights::Mean4pxWindow; }
+		else if (selectedItem == &pixelMean5)   { settings.PixelReduction = Weights::Mean5pxWindow; }
+		else if (selectedItem == &pixelGaus3)   { settings.PixelReduction = Weights::Gaussian3pxWindow; }
+		else if (selectedItem == &pixelGaus4)   { settings.PixelReduction = Weights::Gaussian4pxWindow; }
+		else if (selectedItem == &pixelGaus5)   { settings.PixelReduction = Weights::Gaussian5pxWindow; }
+		else if (selectedItem == &noiseNone)    { settings.NoiseReduction = Weights::NoNoiseReduction; }
+		else if (selectedItem == &noiseMedian3) { settings.NoiseReduction = Weights::MedianFilter3pxWindow; }
+		else if (selectedItem == &noiseMedian5) { settings.NoiseReduction = Weights::MedianFilter5pxWindow; }
+		else if (selectedItem == &noiseMean3)   { settings.NoiseReduction = Weights::MeanFilter3pxWindow; }
+		else if (selectedItem == &noiseMean5)   { settings.NoiseReduction = Weights::MeanFilter5pxWindow; }
+		else if (selectedItem == &noiseGaus3)   { settings.NoiseReduction = Weights::GaussianFilter3pxWindow; }
+		else if (selectedItem == &noiseGaus5)   { settings.NoiseReduction = Weights::GaussianFilter5pxWindow; }
+		else if (selectedItem == &accntNone)    { settings.Accentuation = Weights::NoAccentuation;   }
+		else if (selectedItem == &accntSigmoid) { settings.Accentuation = Weights::Sigmoid;          }
+		else if (selectedItem == &edgeNone)     { settings.EdgeDetection = Weights::NoEdgeDetection; }
+		else if (selectedItem == &edgeSobel3)   { settings.EdgeDetection = Weights::Sobel3;          }
+		else if (selectedItem == &edgeSobel5)   { settings.EdgeDetection = Weights::Sobel5;          }
+		else if (selectedItem == &edgeScharr)   { settings.EdgeDetection = Weights::Scharr;          }
+		else if (selectedItem == &edgeCanny)    { settings.EdgeDetection = Weights::Canny;           }
 		else { /* unknown item was chosen */ }
+		if (orig_settings != settings) { this->livewire->SetSettings(settings); }
 	}
 	else { /* nothing was chosen */ }
 }
