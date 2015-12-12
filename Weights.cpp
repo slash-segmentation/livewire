@@ -39,9 +39,9 @@ const double PI_4 = M_PI / 4;
 //#define SAVE_WEIGHT_IMAGE
 #endif
 
-//#ifdef SAVE_WEIGHT_IMAGE
+#ifndef IMOD_PLUGIN
 #include "BitmapWriter.h"
-//#endif
+#endif
 
 #define MIN(a, b)	(((a) < (b)) ? (a) : (b))
 #define MAX(a, b)	(((a) > (b)) ? (a) : (b))
@@ -843,6 +843,7 @@ uint Weights::GetBlocksCalculated(QVector<QPoint>& done, QVector<QPoint>& doing,
 		}
 	return BS;
 }
+#ifndef IMOD_PLUGIN
 void Weights::SaveImage(const char *name) const
 {
 	const uint total = this->_width_status * this->_height_status;
@@ -855,3 +856,4 @@ void Weights::SaveImage(const char *name) const
 	this->_status_lock.unlock();
 	WriteBitmap(this->_data, this->_width, this->_height, BLOCK_SIZE, name);
 }
+#endif

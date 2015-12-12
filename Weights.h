@@ -157,8 +157,10 @@ namespace Livewire
 		// if the requested point is not yet calculated but has been requested this function will block until it is ready
 		bool Get(uint x, uint y, byte* w) const;
 
+#ifndef IMOD_PLUGIN
 		// will block while there are pending pixels to be calculated then save the weights as an image
 		void SaveImage(const char* name) const;
+#endif
 		
 		inline uint GetScale()          const { return this->_scale;      }
 
