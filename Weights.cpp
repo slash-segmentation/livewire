@@ -526,7 +526,8 @@ void Weights::SetSettings(const Settings& settings)
 
 	this->_settings = settings;
 	this->_filter_overflow = CalcFilterOverflow(settings);
-	if (this->_scale != (uint)WINDOW_SIZE(settings.PixelReduction))
+	bool size_changed = this->_scale != (uint)WINDOW_SIZE(settings.PixelReduction);
+	if (size_changed)
 	{
 		this->_scale = WINDOW_SIZE(settings.PixelReduction);
 		this->UpdatedScaleOrSize();
@@ -537,6 +538,8 @@ void Weights::SetSettings(const Settings& settings)
 		this->_data_raw = data_raw;
 		this->Start();
 	}
+
+	emit SettingsChanged(size_changed, false);
 }
 const Weights::Settings& Weights::GetSettings() const { return this->_settings; }
 
@@ -544,7 +547,8 @@ void Weights::SetImage(const byte* imageData, uint W, uint H, DataFormat format,
 {
 	this->Stop();
 
-	if (this->_width_raw != W || this->_height_raw != H)
+	bool size_changed = this->_width_raw != W || this->_height_raw != H;
+	if (size_changed)
 	{
 		this->_width_raw = W;
 		this->_height_raw = H;
@@ -556,6 +560,8 @@ void Weights::SetImage(const byte* imageData, uint W, uint H, DataFormat format,
 	this->_data_raw = imageData;
 
 	this->Start();
+
+	emit SettingsChanged(size_changed, true);
 }
 
 bool Weights::Get(uint X, uint Y, byte* w) const
@@ -567,7 +573,7 @@ bool Weights::Get(uint X, uint Y, byte* w) const
 	{
 		this->_status_lock.lock();
 		while (this->_status[i] == STATUS_WILL_DO || this->_status[i] == STATUS_DOING)
-			this->_block_finished.wait(&this->_status_lock); // TODO: this can cause some slowdowns if, while waiting, the livewire wants to stop
+			this->_block_finished.wait(&this->_status_lock, 250);
 		this->_status_lock.unlock();
 	}
 	if (this->_status[i] == STATUS_NOT_DONE) // block not complete
@@ -583,7 +589,7 @@ void Weights::Stop()
 	if (!this->_status) // no image set at all so already 'stopped' 
 		return;
 
-	// TODO: stop all livewires using this weight calculator
+	emit this->Stopping();
 
 	const uint wh = this->_width_status*this->_height_status;
 	
@@ -609,7 +615,6 @@ void Weights::Stop()
 			this->_data[I] = NULL;
 		}
 
-	// TODO: Wait for the livewires using this weight calculator
 	this->wait();
 }
 

@@ -37,6 +37,8 @@ namespace Livewire
 {
 	class Weights : public Threaded
 	{
+		Q_OBJECT
+
 	public:
 		enum DataFormat
 		{
@@ -174,6 +176,10 @@ namespace Livewire
 		virtual void Stop();
 	protected:
 		void Run();
+
+	signals:
+		void Stopping();
+		void SettingsChanged(bool size, bool image);
 
 	private:
 		void CalcBlock(uint x, uint y, uint I);

@@ -33,42 +33,39 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 using namespace Livewire;
 
-LivewireCalculator::LivewireCalculator() : Threaded("Livewire Calculator"), _weights(new Weights()), _min_room(0) { }
-LivewireCalculator::~LivewireCalculator() { this->Stop(true); delete this->_weights; }
-
-void LivewireCalculator::SetSettings(const Weights::Settings& settings)
+LivewireCalculator::LivewireCalculator() : LivewireCalculator(new Weights()) { this->_owns_weights = true; }
+LivewireCalculator::LivewireCalculator(Weights* weights) :
+	Threaded("Livewire Calculator"), _weights(weights), _min_room(0), _owns_weights(false)
 {
-	this->Stop(true); // TODO: make sure not blocking
-	const uint w_ = this->_weights->GetReducedWidth(), h_ = this->_weights->GetReducedHeight();
-	this->_weights->SetSettings(settings);
-	const uint w = this->_weights->GetReducedWidth(), h = this->_weights->GetReducedHeight();
-	if (w != w_ || h != h_)
+	QObject::connect(weights, SIGNAL(Stopping()), this, SLOT(OnWeightsStopping()));
+	QObject::connect(weights, SIGNAL(SettingsChanged(bool,bool)), this, SLOT(OnWeightsSettingsChanged(bool,bool)));
+	this->OnWeightsSettingsChanged(true, false);
+}
+LivewireCalculator::~LivewireCalculator()
+{
+	this->Stop(true);
+	if (this->_weights && this->_owns_weights) { delete this->_weights; }
+	this->_weights = NULL;
+}
+
+void LivewireCalculator::OnWeightsStopping() { this->Stop(true); } // TODO: make sure not blocking?
+void LivewireCalculator::OnWeightsSettingsChanged(bool size, bool image)
+{
+	if (image) { this->_min_room = 0; } // signifies that no livewire has been run since the last image change
+	if (size)
 	{
+		const uint w = this->_weights->GetReducedWidth(), h = this->_weights->GetReducedHeight();
 		this->_visited.SetSize(w, h);
 		this->_edge.SetSize(w, h);
 		this->_trace.SetSize(w, h);
 		this->SetTotalProgress(w * h);
 	}
-	if (this->_min_room)
-		Threaded::Start(); // restart with the new settings, using the same x/y/min_room as before
+	if (this->_min_room) { Threaded::Start(); } // restart with the new settings, using the same x/y/min_room as before
 }
+
 const Weights::Settings& LivewireCalculator::GetSettings() const { return this->_weights->GetSettings(); }
-
-void LivewireCalculator::SetImage(const byte* image, uint W, uint H, Weights::DataFormat format, uint stride)
-{
-	this->Stop(true); // TODO: make sure not blocking
-	this->_min_room = 0; // signifies that no livewire has been run since the last image change
-	const uint w_ = this->_weights->GetReducedWidth(), h_ = this->_weights->GetReducedHeight();
-	this->_weights->SetImage(image, W, H, format, stride);
-	const uint w = this->_weights->GetReducedWidth(), h = this->_weights->GetReducedHeight();
-	if (w != w_ || h != h_)
-	{
-		this->_visited.SetSize(w, h);
-		this->_edge.SetSize(w, h);
-		this->_trace.SetSize(w, h);
-		this->SetTotalProgress(w * h);
-	}
-}
+void LivewireCalculator::SetSettings(const Weights::Settings& settings) { this->_weights->SetSettings(settings); }
+void LivewireCalculator::SetImage(const byte* image, uint W, uint H, Weights::DataFormat format, uint stride) { this->_weights->SetImage(image, W, H, format, stride); }
 
 void LivewireCalculator::Start(uint x, uint y, uint min_room)
 {

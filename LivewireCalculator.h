@@ -39,9 +39,14 @@ namespace Livewire
 {
 	class LivewireCalculator : public Threaded
 	{
+		Q_OBJECT
+
 	private:
 		/// <summary>The weights backing this livewire calculator</summary>
 		Weights *_weights;
+
+		/// <summary>If this livewire calculator owns its weights or not</summary>
+		bool _owns_weights;
 
 		/// <summary>The X coordinate of the point at which the livewire starts</summary>
 		uint _x;
@@ -62,10 +67,11 @@ namespace Livewire
 		SparseMatrix<uint> _trace;
 
 	public:
+		/// <summary>Create a new livewire calculator with a private set of weights</summary>
 		LivewireCalculator();
+		/// <summary>Create a new livewire calculator with an external set of weights - you must delete the weights object when apporpiate</summary>
+		LivewireCalculator(Weights* weights);
 		virtual ~LivewireCalculator();
-
-		LivewireCalculator *Copy();
 
 		void SetImage(const byte* image, uint w, uint h, Weights::DataFormat format, uint stride);
 		void SetSettings(const Weights::Settings& settings);
@@ -83,6 +89,10 @@ namespace Livewire
 
 	private:
 		inline void CalcPoint(const uint x, const uint y, const uint i, const bool diagonal, const uint I, const uint S);
+
+	private slots:
+		void OnWeightsStopping();
+		void OnWeightsSettingsChanged(bool size, bool image);
 
 	public:
 		/// <summary>
