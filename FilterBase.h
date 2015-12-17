@@ -196,7 +196,7 @@ struct WindowFilter<3> : public Filter<3>
 template<typename filter> // Filter::WindowSize must be greater than 1
 struct WindowBinner : filter
 {
-	typedef typename filter Filter;
+	typedef filter Filter;
 	static const uint WindowSize = Filter::WindowSize;
 	void Run(const uint W, const uint H, const uint stride, const byte *in, byte *out)
 	{

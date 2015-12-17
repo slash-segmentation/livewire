@@ -227,7 +227,7 @@ template<uint windowSize, typename kernel>
 struct EdgeFilter : public WindowFilter<windowSize>
 {
 	// These are double-convolution filters with weird scaling, so we don't actually extend from SepConvFilter
-	typedef typename kernel Kernel;
+	typedef kernel Kernel;
 
 	// Since edge filters do so poorly along the image edges simply set edges to a not-very-edge-like-value
 	virtual byte FilterWindow(const byte**, uint, uint, uint, uint) { return 224; }
