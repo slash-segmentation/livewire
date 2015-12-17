@@ -30,6 +30,7 @@ typedef unsigned int uint;
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #define CASSERT(b)	typedef char __C_ASSERT__[b]	// compile-time assert
 
@@ -91,12 +92,12 @@ namespace Livewire
 	public:
 		inline explicit	vector() : _len(0), _cap(0), _x(NULL)	{ }
 		inline			~vector()					{ this->reset(); }
-		inline T&		operator[](size_t i)		{ return this->_x[i]; }
-		inline const T&	operator[](size_t i) const	{ return this->_x[i]; }
-		inline T&		front()						{ return this->_x[0]; }
-		inline const T&	front() const				{ return this->_x[0]; }
-		inline T&		back()						{ return this->_x[this->_len-1]; }
-		inline const T&	back() const				{ return this->_x[this->_len-1]; }
+		inline T&		operator[](size_t i)		{ assert(this->_len > i); return this->_x[i]; }
+		inline const T&	operator[](size_t i) const	{ assert(this->_len > i); return this->_x[i]; }
+		inline T&		front()						{ assert(this->_len > 0); return this->_x[0]; }
+		inline const T&	front() const				{ assert(this->_len > 0); return this->_x[0]; }
+		inline T&		back()						{ assert(this->_len > 0); return this->_x[this->_len-1]; }
+		inline const T&	back() const				{ assert(this->_len > 0); return this->_x[this->_len-1]; }
 		inline bool		empty() const				{ return this->_len == 0; }
 		inline size_t	size() const				{ return this->_len; }
 		inline size_t	capacity() const			{ return this->_cap; }
@@ -109,6 +110,7 @@ namespace Livewire
 				if (!this->_cap)		{ this->_cap = min_cap; }
 				while (n > this->_cap)	{ this->_cap <<= 1; }
 				this->_x = (T*)realloc(this->_x, this->_cap*sizeof(T));
+				assert(this->_x);
 			}
 		}
 		inline void		push_back(const T& v)
@@ -117,6 +119,7 @@ namespace Livewire
 			{
 				this->_cap = this->_cap ? this->_cap << 1 : min_cap;
 				this->_x = (T*)realloc(this->_x, this->_cap*sizeof(T));
+				assert(this->_x);
 			}
 			this->_x[this->_len++] = v;
 		}
@@ -167,6 +170,7 @@ namespace Livewire
 		{
 			const uint bytes = this->_w * this->_h * sizeof(Block);
 			this->_x = (Block*)memset(malloc(bytes), 0, bytes);
+			assert(this->_x);
 		}
 		inline ~SparseMatrix() { this->ReturnAll(); free(this->_x); }
 		inline void Clear()    { this->ReturnAll(); memset(this->_x, 0, this->_w * this->_h * sizeof(Block)); }
@@ -179,18 +183,19 @@ namespace Livewire
 			{
 				this->_w = w; this->_h = h;
 				this->_x = (Block*)realloc(this->_x, bytes);
+				assert(this->_x);
 			}
 			memset(this->_x, 0, bytes);
 		}
 		inline T Get(const uint X, const uint Y) const
 		{
-			//assert(this->_x);
+			assert(this->_x);
 			const Block *b = this->_x + (Y >> block_size_)*this->_w + (X >> block_size_);
 			return b->data ? b->data[((Y & (block_size-1)) << block_size_) + (X & (block_size-1))] : 0;
 		}
 		void Set(const uint X, const uint Y, const T& val)
 		{
-			//assert(this->_x);
+			assert(this->_x);
 			Block *b = this->_x + (Y >> block_size_)*this->_w + (X >> block_size_);
 			if (b->data)
 			{
