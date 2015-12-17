@@ -33,9 +33,15 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 using namespace Livewire;
 
-LivewireCalculator::LivewireCalculator() : LivewireCalculator(new Weights()) { this->_owns_weights = true; }
+LivewireCalculator::LivewireCalculator() :
+	Threaded("Livewire Calculator"), _weights(new Weights()), _owns_weights(true), _min_room(0)
+{
+	QObject::connect(weights, SIGNAL(Stopping()), this, SLOT(OnWeightsStopping()));
+	QObject::connect(weights, SIGNAL(SettingsChanged(bool,bool)), this, SLOT(OnWeightsSettingsChanged(bool,bool)));
+	this->OnWeightsSettingsChanged(true, false);
+}
 LivewireCalculator::LivewireCalculator(Weights* weights) :
-	Threaded("Livewire Calculator"), _weights(weights), _min_room(0), _owns_weights(false)
+	Threaded("Livewire Calculator"), _weights(weights), _owns_weights(false), _min_room(0)
 {
 	QObject::connect(weights, SIGNAL(Stopping()), this, SLOT(OnWeightsStopping()));
 	QObject::connect(weights, SIGNAL(SettingsChanged(bool,bool)), this, SLOT(OnWeightsSettingsChanged(bool,bool)));

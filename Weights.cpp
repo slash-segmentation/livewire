@@ -58,7 +58,7 @@ using namespace Livewire;
 /// <param name="halfmax_x">The value of x at which the result is half of the max, below this values will become smaller and above they will become larger</param>
 /// <param name="max_y">The maximum value of the result</param>
 /// <returns>The evaluated sigmoid function value</returns>
-template<int slope_inv, int halfmax_x, int min_y = 0, int max_y=255>
+template<int slope_inv, int halfmax_x, int min_y, int max_y>
 inline static int sigmoid(const int x) { return (int)(min_y + (max_y - min_y) / (1 + exp((halfmax_x - x) / (double)slope_inv))); }
 
 #pragma region Coalescing Functions
@@ -244,7 +244,7 @@ struct EdgeFilter : public WindowFilter<windowSize>
 			}
 		//return ~(byte)sqrt((double)((Gx*Gx + Gy*Gy) / (Kernel::Total / (255 * 255))); // real way to scale the data, but the slope is way too slow for real data
 		//return ~(byte)sigmoid<Kernel::Total / 8, 0, -255>(Gx*Gx + Gy*Gy); // only top half of curve (shaped more like the sqrt)
-		return ~(byte)sigmoid<Kernel::Total / 50, Kernel::Total / 8>(Gx*Gx + Gy*Gy); // TODO: magic numbers 50 and 8
+		return ~(byte)sigmoid<Kernel::Total / 50, Kernel::Total / 8, 0, 255>(Gx*Gx + Gy*Gy); // TODO: magic numbers 50 and 8
 	}
 };
 
@@ -455,12 +455,12 @@ struct CannyFilter : Filter<windowSize>
 /// <summary>Calculates a sigmoid function for the given value with a slope of 0.05 and half-max at 128.</summary>
 /// <param name="x">The value of x to calculate the sigmoid for (0-255)</param>
 /// <returns>The evaluated sigmoid function value (0-255)</returns>
-inline static byte sigmoid_accentuation(byte x) { return sigmoid<20, 128>(x); }
+inline static byte sigmoid_accentuation(byte x) { return sigmoid<20, 128, 0, 255>(x); }
 
 //inline static double sigmoid(float x, double halfmax_x, double max_y, double slope) { return max_y / (1 + exp(slope * (halfmax_x - x))); }
 //inline static double sigmoid(float x) { return sigmoid(x, 0.5, 1.0, 10.0); }
 
-struct SigmoidAccentuationFilter : public PixelFilter { virtual byte FilterPixel(byte x) { return sigmoid<20, 128>(x); } };
+struct SigmoidAccentuationFilter : public PixelFilter { virtual byte FilterPixel(byte x) { return sigmoid<20, 128, 0, 255>(x); } };
 #pragma endregion
 
 struct Invert : public PixelFilter { virtual byte FilterPixel(byte x) { return ~x; } };
