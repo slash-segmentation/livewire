@@ -36,8 +36,8 @@ using namespace Livewire;
 LivewireCalculator::LivewireCalculator() :
 	Threaded("Livewire Calculator"), _weights(new Weights()), _owns_weights(true), _min_room(0)
 {
-	QObject::connect(weights, SIGNAL(Stopping()), this, SLOT(OnWeightsStopping()));
-	QObject::connect(weights, SIGNAL(SettingsChanged(bool,bool)), this, SLOT(OnWeightsSettingsChanged(bool,bool)));
+	QObject::connect(_weights, SIGNAL(Stopping()), this, SLOT(OnWeightsStopping()));
+	QObject::connect(_weights, SIGNAL(SettingsChanged(bool,bool)), this, SLOT(OnWeightsSettingsChanged(bool,bool)));
 	this->OnWeightsSettingsChanged(true, false);
 }
 LivewireCalculator::LivewireCalculator(Weights* weights) :
