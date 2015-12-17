@@ -180,7 +180,7 @@ inline void LivewireCalculator::CalcPoint(const uint x, const uint y, const uint
 			this->_edge.Enqueue(x, y, i, s);
 			this->_trace.Set(x, y, I);
 		}
-		else if (this->_edge.DescreaseScore(x, y, s))
+		else if (this->_edge.DecreaseScore(x, y, s))
 		{
 			this->_trace.Set(x, y, I);
 		}

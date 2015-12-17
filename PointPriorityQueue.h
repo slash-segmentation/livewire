@@ -35,7 +35,7 @@ namespace Livewire
 		 *  void Enqueue(uint x, uint y, uint I, uint score)		O(log(n))
 		 *  bool Dequeue(uint& x, uint& y, uint& I, uint& score)	O(log(n))
 		 *	bool Contains(uint x, uint y) const						O(log(n))	Only for LivewireCalculator
-		 *  bool DescreaseScore(uint x, uint y, uint score)			O(log(n))	Only for LivewireCalculator
+		 *  bool DecreaseScore(uint x, uint y, uint score)			O(log(n))	Only for LivewireCalculator
 		 *	void UpdateAllScores(CalcScore f, const void *param)	O(n)		Only for WeightCalculator
 		 *  void Clear()											O(n)
 		 * All other public functions can be removed
@@ -70,12 +70,12 @@ namespace Livewire
 
 		bool Contains(uint x, uint y) const;
 //		bool UpdateScore(uint x, uint y, uint score);
-		bool DescreaseScore(uint x, uint y, uint score);
+		bool DecreaseScore(uint x, uint y, uint score);
 //		bool IncreaseScore(uint x, uint y, uint score);
 
 //		bool Contains(uint I) const;
 //		bool UpdateScore(uint I, uint score);
-//		bool DescreaseScore(uint I, uint score);
+//		bool DecreaseScore(uint I, uint score);
 //		bool IncreaseScore(uint I, uint score);
 
 		typedef uint (*CalcScore)(uint x, uint y, uint I, const void *param);

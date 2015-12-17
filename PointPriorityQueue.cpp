@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 // Inspired by a min-heap priority queue by Alexey Kurakin (http://www.codeproject.com/KB/threads/PriorityQueueGeneric.aspx)
 
 #include "PointPriorityQueue.h"
+#include <QMutex>
 
 //#define ENABLE_CHECKING
 
@@ -36,10 +37,12 @@ struct PointPriorityQueue::Entry
 private:
 	static vector<Entry*> avail;
 	static vector<void*> blocks;
+	static QMutex lock;
 
 public:
 	inline static Entry *Get(uint s, size_t idx, uint x, uint y, uint I)
 	{
+		Entry::lock.lock();
 		if (avail.size() == 0)
 		{
 			// Allocate a bunch at a time
@@ -50,21 +53,30 @@ public:
 				avail.push_back(mem+i);
 		}
 		Entry *e = avail.pop_back();
+		Entry::lock.unlock();
 		e->score = s; e->index = idx; e->x = x; e->y = y; e->I = I;
 		return e;
 	}
-	inline static void Return(Entry *e) { avail.push_back(e); }
+	inline static void Return(Entry *e)
+	{
+		Entry::lock.lock();
+		avail.push_back(e);
+		Entry::lock.unlock();
+	}
 	//inline void Return() { Return(this); }
 	inline static void Clear()
 	{
+		Entry::lock.lock();
 		for (size_t i = 0; i < blocks.size(); ++i)
 			free(blocks[i]);
 		blocks.reset();
 		avail.reset();
+		Entry::lock.unlock();
 	}
 };
 vector<PointPriorityQueue::Entry*> PointPriorityQueue::Entry::avail;
 vector<void*> PointPriorityQueue::Entry::blocks;
+QMutex PointPriorityQueue::Entry::lock;
 void PointPriorityQueue::EntryClear() { Entry::Clear(); }
 
 #ifdef ENABLE_CHECKING
@@ -77,16 +89,16 @@ void PointPriorityQueue::EntryClear() { Entry::Clear(); }
 #include <assert.h>
 #endif
 #define ASSERT(B)	assert(B)
-#define CHECK(O)	Check(O, this->_heap, this->_map, this->_width, this->_height)
-static void Check(const bool cHO, const vector<PointPriorityQueue::Entry*>& heap, const SparseMatrix<size_t>& map, const uint w, const uint h)
+#define CHECK(S, O)	Check(S, O, this->_heap, this->_map, this->_w, this->_h)
+static void Check(const char *S, const bool cHO, const vector<PointPriorityQueue::Entry*>& heap, const SparseMatrix<size_t*>& map, const uint w, const uint h)
 {
 	for (size_t i = 0; i < heap.size(); ++i)
 	{
 		const PointPriorityQueue::Entry *e = heap[i];
-		assert(i == *e->index);
+		assert(i == e->index);
 		if (i && cHO)
 			assert(e->score >= heap[(i-1)/2]->score);
-		assert(e->I == IW(e->x, e->y, w));
+		assert(e->I == e->x + e->y * w);
 		assert(&e->index == map.Get(e->x, e->y));
 	}
 	for (uint y = 0; y < h; ++y)
@@ -101,7 +113,7 @@ static void Check(const bool cHO, const vector<PointPriorityQueue::Entry*>& heap
 }
 #else
 #define ASSERT(B)	
-#define CHECK(O)	
+#define CHECK(S, O)	
 #endif
 
 PointPriorityQueue::PointPriorityQueue() : _w(0), _h(0) { }
@@ -152,7 +164,7 @@ void PointPriorityQueue::Clear()
 		Entry::Return(this->_heap[i]);
 	this->_heap.clear();
 	this->_map.Clear();
-	CHECK(true);
+	CHECK("Clear", true);
 }
 
 #pragma endregion
@@ -171,9 +183,9 @@ bool PointPriorityQueue::Contains(uint x, uint y) const { return this->_map.Get(
 //	else			this->HeapifyFromEndToBeginning(i); // priority is smaller, heapify
 //	return true;
 //}
-bool PointPriorityQueue::DescreaseScore(uint x, uint y, uint score)
+bool PointPriorityQueue::DecreaseScore(uint x, uint y, uint score)
 {
-	ASSERT(this->_map.Get(x, y));
+	ASSERT(this->_map.Get(x, y) && *this->_map.Get(x, y) < this->_heap.size());
 	size_t i = *this->_map.Get(x, y);
 	if (score >= this->_heap[i]->score) return false;
 	this->_heap[i]->score = score;
@@ -192,7 +204,7 @@ bool PointPriorityQueue::DescreaseScore(uint x, uint y, uint score)
 
 //bool PointPriorityQueue::Contains(uint I) const { ... }
 //bool PointPriorityQueue::UpdateScore(uint I, uint score) { ... }
-//bool PointPriorityQueue::DescreaseScore(uint I, uint score) { ... }
+//bool PointPriorityQueue::DecreaseScore(uint I, uint score) { ... }
 //bool PointPriorityQueue::IncreaseScore(uint I, uint score) { ...; }
 
 void PointPriorityQueue::UpdateAllScores(CalcScore f, const void *param)
@@ -215,22 +227,23 @@ void PointPriorityQueue::UpdateAllScores(CalcScore f, const void *param)
 #pragma region Heap operations
 void PointPriorityQueue::ExchangeElements(size_t a, size_t b)
 {
+	ASSERT(a < this->_heap.size() && b < this->_heap.size());
 	Entry *e = this->_heap[a];
 	(this->_heap[a] = this->_heap[b])->index = a;
 	(this->_heap[b] = e)->index = b;
-	CHECK(false);
+	//CHECK("ExchangeElements", false);
 }
 
 void PointPriorityQueue::Insert(uint x, uint y, uint I, uint score)
 {
-	ASSERT(x < this->_width && y < this->_height);
+	ASSERT(x < this->_w && y < this->_h);
 	ASSERT(!this->_map.Get(x,y));
 	
 	const size_t count = this->_heap.size();
 	Entry *e = Entry::Get(score, count, x, y, I);
 	this->_heap.push_back(e);
 	this->_map.Set(x, y, &e->index);
-	CHECK(false);
+	CHECK("Insert", false);
 
 	// heapify after insert, from end to beginning
 	this->HeapifyFromEndToBeginning(count);
@@ -249,7 +262,7 @@ void PointPriorityQueue::HeapifyFromEndToBeginning(size_t pos)
 		}
 		else break;
 	}
-	CHECK(true);
+	CHECK("HeapifyFromEndToBeginning", true);
 }
 
 void PointPriorityQueue::DeleteRoot()
@@ -263,7 +276,7 @@ void PointPriorityQueue::DeleteRoot()
 	{
 		(this->_heap[0] = E)->index = 0;
 	
-		CHECK(false);
+		CHECK("DeleteRoot", false);
 	
 		// heapify
 		this->HeapifyFromBeginningToEnd(0);
@@ -275,7 +288,7 @@ void PointPriorityQueue::HeapifyFromBeginningToEnd(size_t pos)
 {
 	const size_t count = this->_heap.size();
 
-	ASSERT(pos < count); 
+	ASSERT(pos < count);
 
 	const uint S = this->_heap[pos]->score;
 	size_t smallest = pos;
@@ -293,6 +306,6 @@ void PointPriorityQueue::HeapifyFromBeginningToEnd(size_t pos)
 		pos = smallest;
 	}
 
-	CHECK(true);
+	CHECK("HeapifyFromBeginningToEnd", true);
 }
 #pragma endregion
