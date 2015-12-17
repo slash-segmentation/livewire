@@ -744,9 +744,9 @@ void Weights::CalcBlock(uint x_s, uint y_s, uint I)
 		case Luma:			CoalesceLuma		(BW, BH, this->_stride, in, out); break;
 		case Luma601:		CoalesceLuma601		(BW, BH, this->_stride, in, out); break;
 		case LumaSMPTE:		CoalesceLumaSMPTE	(BW, BH, this->_stride, in, out); break;
-		case WeightedHSV:	CoalesceWeightedHSV	(BW, BH, this->_stride, in, out); break; // TODO: test
-		case WeightedHSL:	CoalesceWeightedHSL	(BW, BH, this->_stride, in, out); break; // TODO: test
-		case WeightedHSI:	CoalesceWeightedHSI	(BW, BH, this->_stride, in, out); break; // TODO: test
+		case WeightedHSV:	CoalesceWeightedHSV	(BW, BH, this->_stride, in, out); break;
+		case WeightedHSL:	CoalesceWeightedHSL	(BW, BH, this->_stride, in, out); break;
+		case WeightedHSI:	CoalesceWeightedHSI	(BW, BH, this->_stride, in, out); break;
 		}
 	}
 
